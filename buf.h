@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <string.h>
 
-typedef struct BufStruct {
+typedef struct {
     char* buf;
     size_t capacity;
     size_t len;
