@@ -88,6 +88,16 @@ int list_remove(List* list, void* item) {
     return 0;
 }
 
+size_t list_len(List* list) {
+    ListNode* node = list->head;
+    size_t i = 0;
+    while (node->next != list->tail) {
+        ++i;
+        node = node->next;
+    }
+    return i;
+}
+
 /* Does not call free on each item */
 void list_free(List* list) {
     ListNode* node = list->head;

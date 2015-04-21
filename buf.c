@@ -37,6 +37,12 @@ void buf_append(Buf* buf, char* data, size_t len) {
     buf->len = new_len;
 }
 
+void buf_append_char(Buf* buf, char c) {
+    char str[2] = "\0";
+    str[0] = c;
+    buf_append(buf, str, 1);
+}
+
 char buf_get_last_char(Buf* buf) {
     assert(buf != NULL);
     return (buf->len == 0) ? 0 : buf->buf[buf->len - 1];

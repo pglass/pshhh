@@ -1,3 +1,6 @@
+#ifndef LIST_H
+#define LIST_H
+
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
@@ -24,5 +27,7 @@ typedef struct {
 List* list_init();
 ListNode* list_append(List* list, void* item);
 int  list_remove(List* list, void* item);
-void list_len(List* list);
+size_t list_len(List* list);
 void list_free();
+
+#endif

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "buf.h"
+#include "pshscript/lex.h"
 
 #define BUF_SIZE 1000
 
@@ -25,7 +26,13 @@ void read_line(Buf* buf) {
 int main(int argc, char** argv) {
     printf("Starting pshhh\n");
     Buf* buf = buf_init(BUF_SIZE);
-    prompt("$");
-    read_line(buf);
-    printf("Got input: %s\n", buf->buf);
+    while (1) {
+        buf_clear(buf);
+        prompt("$");
+        read_line(buf);
+        printf("Got input: '%s'\n", buf->buf);
+        Lexer* lexer = lexer_init(buf);
+        lexer_lex(lexer);
+        lexer_free(lexer);
+    }
 }
