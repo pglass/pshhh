@@ -34,9 +34,6 @@ clean:
 	find . | grep "[.]o$$\|[.]gch$$" | xargs rm -f
 	rm -f pshhh lex_test_shim
 
-list: list.c
-	$(CC) $(CFLAGS) $^ -o $@
-
 #=============================
 # TEST RULES
 #=============================

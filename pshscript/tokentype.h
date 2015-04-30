@@ -10,6 +10,8 @@ typedef enum {
     NEWLINE,
     WHITESPACE, // excluding '\n'
     IO_NUMBER,
+    STR_SEGMENT,
+    SINGLE_QUOTED_STRING,
 
     MIN_PUNCTUATION,
     PIPE,       // |
@@ -38,6 +40,7 @@ typedef enum {
     LBRACE,     // {
     RBRACE,     // }
     BANG,       // !
+    COLON,      // :
 
     AND_IF,     // &&
     OR_IF,      // ||

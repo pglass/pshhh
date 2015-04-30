@@ -7,6 +7,8 @@ char* TTYPE_TO_STR[] = {
     "NEWLINE",
     "WHITESPACE", // "excluding" '\"n"'
     "IO_NUMBER",
+    "STR_SEGMENT",
+    "SINGLE_QUOTED_STRING",
 
     "MIN_PUNCTUATION",
     "PIPE",       // |
@@ -35,6 +37,7 @@ char* TTYPE_TO_STR[] = {
     "LBRACE",     // {
     "RBRACE",     // }
     "BANG",       // !
+    "COLON",      // :
 
     "AND_IF",     // &&
     "OR_IF",      // ||

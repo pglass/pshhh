@@ -79,7 +79,7 @@ class TestLex(unittest.TestCase):
 
     def test_lex_single_letter_ops(self):
         self.assertEqual(
-            self.run_lexer('| & ; < > ( ) $ ` \\ \' " + - * / ? [ ] # ~ = % { } !'),
+            self.run_lexer('| & ; < > ( ) $ ` \\ + - * / ? [ ] # ~ = % { } !'),
                 '("|" PIPE)(" " WHITESPACE)'
                 '("&" AMPERSAND)(" " WHITESPACE)'
                 '(";" SEMI)(" " WHITESPACE)'
@@ -90,8 +90,6 @@ class TestLex(unittest.TestCase):
                 '("$" DOLLAR)(" " WHITESPACE)'
                 '("`" BACKTICK)(" " WHITESPACE)'
                 '("\\" BACKSLASH)(" " WHITESPACE)'
-                '("\'" QUOTE)(" " WHITESPACE)'
-                '(""" DQUOTE)(" " WHITESPACE)'
                 '("+" PLUS)(" " WHITESPACE)'
                 '("-" DASH)(" " WHITESPACE)'
                 '("*" ASTERISK)(" " WHITESPACE)'
@@ -127,6 +125,100 @@ class TestLex(unittest.TestCase):
             '("function" FUNCTION)(" " WHITESPACE)'
             '("select" SELECT)')
 
+    def test_lex_single_quoted_string(self):
+        self.assertEqual(
+            self.run_lexer(r"'  a  $(VAR) ${VAR} `qwqwe` \` \$ \'"),
+            r'("  a  $(VAR) ${VAR} `qwqwe` \` \$ \" SINGLE_QUOTED_STRING)')
+
+    def test_lex_double_quoted_string(self):
+        self.assertEqual(
+            self.run_lexer('"  a  b  c  "'),
+            '(""" DQUOTE)'
+            '("  a  b  c  " STR_SEGMENT)'
+            '(""" DQUOTE)')
+
+    def test_lex_double_quoted_string_escapes(self):
+        self.assertEqual(
+            self.run_lexer(r'"\""'),
+            '(""" DQUOTE)(""" STR_SEGMENT)(""" DQUOTE)')
+        self.assertEqual(
+            self.run_lexer(r'"\$"'),
+            '(""" DQUOTE)("$" STR_SEGMENT)(""" DQUOTE)')
+        self.assertEqual(
+            self.run_lexer(r'"\`"'),
+            '(""" DQUOTE)("`" STR_SEGMENT)(""" DQUOTE)')
+        self.assertEqual(
+            self.run_lexer(r'"\\"'),
+            r'(""" DQUOTE)("\" STR_SEGMENT)(""" DQUOTE)')
+        self.assertEqual(
+            self.run_lexer(r'"\"\"\$\$\`\`\\\\"'),
+            r'(""" DQUOTE)("""$$``\\" STR_SEGMENT)(""" DQUOTE)')
+
+    def test_lex_double_quoted_string_parens_expansion(self):
+        self.assertEqual(
+            self.run_lexer('"abcd$(POO)efgh"'),
+            '(""" DQUOTE)'
+            '("abcd" STR_SEGMENT)'
+            '("$" DOLLAR)'
+            '("(" LPAREN)'
+            '("POO" NAME)'
+            '(")" RPAREN)'
+            '("efgh" STR_SEGMENT)'
+            '(""" DQUOTE)')
+
+    def test_lex_double_quoted_string_brace_expansion(self):
+        self.assertEqual(
+            self.run_lexer('"abcd${POO}efgh"'),
+            '(""" DQUOTE)'
+            '("abcd" STR_SEGMENT)'
+            '("$" DOLLAR)'
+            '("{" LBRACE)'
+            '("POO" STR_SEGMENT)'
+            '("}" RBRACE)'
+            '("efgh" STR_SEGMENT)'
+            '(""" DQUOTE)')
+
+    def test_lex_double_quoted_string_brace_expansion_with_operators(self):
+        ops = {
+            ":": '(":" COLON)',
+            ":+": '(":" COLON)("+" PLUS)',
+            ":-": '(":" COLON)("-" DASH)',
+            ":=": '(":" COLON)("=" EQUALS)',
+            ":?": '(":" COLON)("?" QUESTION)',
+            "+": '("+" PLUS)',
+            "-": '("-" DASH)',
+            "=": '("=" EQUALS)',
+            "?": '("?" QUESTION)',
+            "#": '("#" HASH)',
+            "##": '("#" HASH)("#" HASH)',
+            "%%": '("%" PERCENT)("%" PERCENT)'
+        }
+        for k, v in ops.iteritems():
+            self.assertEqual(
+                self.run_lexer('"abcd${POO%sWUMBO}efgh"' % k),
+                '(""" DQUOTE)'
+                '("abcd" STR_SEGMENT)'
+                '("$" DOLLAR)'
+                '("{" LBRACE)'
+                '("POO" STR_SEGMENT)'
+                '%s'
+                '("WUMBO" STR_SEGMENT)'
+                '("}" RBRACE)'
+                '("efgh" STR_SEGMENT)'
+                '(""" DQUOTE)' % v)
+
+    def test_lex_double_quoted_string_brace_expansion_string_length(self):
+        self.assertEqual(
+            self.run_lexer('"abcd${#POO}efgh"'),
+            '(""" DQUOTE)'
+            '("abcd" STR_SEGMENT)'
+            '("$" DOLLAR)'
+            '("{" LBRACE)'
+            '("#" HASH)'
+            '("POO" STR_SEGMENT)'
+            '("}" RBRACE)'
+            '("efgh" STR_SEGMENT)'
+            '(""" DQUOTE)')
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
