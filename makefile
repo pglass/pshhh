@@ -1,4 +1,3 @@
-
 CC=clang
 CFLAGS=-Wall --std=c99 -g
 
@@ -31,7 +30,7 @@ run: pshhh
 	./pshhh
 
 clean:
-	find . | grep "[.]o$$\|[.]gch$$" | xargs rm -f
+	find . -name "*.o" -or -name "*.gch" -or -name "*.dSYM" -delete
 	rm -f pshhh lex_test_shim
 
 #=============================

@@ -30,4 +30,12 @@ int  list_remove(List* list, void* item);
 size_t list_len(List* list);
 void list_free();
 
+#define LIST_ITER_START(list, var) \
+    ListNode* var = (list)->head->next;    \
+    while (var != (list)->tail) {
+
+#define LIST_ITER_END(var) \
+        var = (var)->next; \
+    }
+
 #endif

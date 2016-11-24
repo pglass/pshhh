@@ -11,11 +11,8 @@ int main(int argc, char** argv) {
     buf_append(buf, argv[1], strlen(argv[1]));
     Lexer* lexer = lexer_init(buf);
     lexer_lex(lexer);
-    ListNode* node = lexer->tokens->head->next;
-    while (node != lexer->tokens->tail) {
-        // token_print((Token*) node->item);
+    LIST_ITER_START(lexer->tokens, node)
         Token* token = (Token*) node->item;
         printf("(\"%s\" %s)", token->data.str, tokentype_to_str(token->type));
-        node = node->next;
-    }
+    LIST_ITER_END(node)
 }
