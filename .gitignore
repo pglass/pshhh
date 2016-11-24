@@ -1,3 +1,9 @@
 *.o
 *.gch
+*.dSYM
 pshhh
+lex_test_shim
+.cache
+.venv
+*.pyc
+*.pyo

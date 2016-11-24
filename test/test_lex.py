@@ -19,8 +19,13 @@ class TestLex(unittest.TestCase):
 
     def test_lex_big_name(self):
         # put a letter at the front to ensure it's a NAME and not a WORD
-        name = "a" + "".join([random.choice(string.letters + string.digits + '_') for _ in xrange(100000)])
-        self.assertEqual(self.run_lexer(name), '("%s" NAME)' % name)
+        for i in range(21):
+            length = 100000 + i
+            name = "a" + "".join([
+                random.choice(string.letters + string.digits + '_')
+                for _ in xrange(length)
+            ])
+            self.assertEqual(self.run_lexer(name), '("%s" NAME)' % name)
 
     def test_lex_word(self):
         """A WORD consists only of underscores, digits, and letters"""

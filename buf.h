@@ -18,5 +18,6 @@ void buf_append_char(Buf* buf, char c);
 void buf_strip_last_char(Buf* buf);
 char buf_get_last_char(Buf* buf);
 void buf_clear(Buf* buf);
+char* buf_to_str(Buf* buf);
 
 #endif

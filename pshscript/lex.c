@@ -29,8 +29,8 @@ int lexer_peek(Lexer* lexer) {
 }
 
 void lexer_yield_token(Lexer* lexer, Buf* buf, TokenType type) {
-    char* s = (char*) malloc(buf->len);
-    strncpy(s, buf->buf, buf->len);
+    // this copy is bad
+    char* s = buf_to_str(buf);
     Token* token = token_init_str(s, type);
     list_append(lexer->tokens, (void*) token);
 }

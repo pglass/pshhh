@@ -57,6 +57,14 @@ void buf_strip_last_char(Buf* buf) {
 }
 
 void buf_clear(Buf* buf) {
-    memset(buf->buf, 0, buf->len);
+    memset(buf->buf, 0, buf->capacity * sizeof(char));
     buf->len = 0;
+}
+
+char* buf_to_str(Buf* buf) {
+    // buf->len does not include space for the null terminator
+    char* s = (char*) malloc(buf->len + 1);
+    strncpy(s, buf->buf, buf->len);
+    s[buf->len] = '\0';
+    return s;
 }
