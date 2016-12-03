@@ -1,0 +1,4 @@
+package: psh
+import: []
+testImport:
+  - package: github.com/stretchr/testify/assert
