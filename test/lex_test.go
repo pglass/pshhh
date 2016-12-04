@@ -1,57 +1,41 @@
 package test
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
-	"io"
 	"psh/lex"
-	"strings"
 	"testing"
 )
 
-func lex_input(input string) ([]*lex.Token, error) {
-	reader := strings.NewReader(input)
-	lexer := lex.NewLexer(reader)
+func lex_input(input string) []lex.Token {
+	lexer := lex.NewLexer(input)
 
-	tokens := []*lex.Token{}
-	var token *lex.Token = nil
-	var err error = nil
+	tokens := []lex.Token{}
 	for {
-		token, err = lexer.Next()
-		if token != nil {
-			tokens = append(tokens, token)
-		} else if err != nil || token == nil {
-			break
+		tok := lexer.Next()
+		tokens = append(tokens, tok)
+
+		switch tok.Type {
+		case lex.EOF, lex.ERROR:
+			return tokens
 		}
 	}
-	return tokens, err
+	return tokens
 }
 
 type lexData struct {
 	Input  string
-	Tokens []*lex.Token
-	Error  error
+	Tokens []lex.Token
 }
 
 func run_lex_test(t *testing.T, data lexData) {
 	t.Logf("Input: %q", data.Input)
-	t.Logf("Error (expected): %v", data.Error)
 	t.Logf("Output (expected): %v", data.Tokens)
 
-	tokens, err := lex_input(data.Input)
+	tokens := lex_input(data.Input)
 
-	t.Logf("Error (recieved): %v", err)
 	t.Logf("Output (received): %v", tokens)
 
-	if data.Error != nil {
-		assert.Equal(t, data.Error, err)
-	} else {
-		assert.Nil(t, err)
-	}
-
-	if data.Tokens != nil {
-		assert.Equal(t, data.Tokens, tokens)
-	}
+	assert.Equal(t, data.Tokens, tokens)
 }
 
 func TestLexer(t *testing.T) {
@@ -62,270 +46,282 @@ func TestLexer(t *testing.T) {
 
 var LEX_CASES = []lexData{
 	lexData{
-		Input: "abc foo.txt ./main",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.Name, "abc", lex.Location{0, 0}, lex.Location{0, 3}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 3}, lex.Location{0, 4}},
-			&lex.Token{lex.Name, "foo.txt", lex.Location{0, 4}, lex.Location{0, 11}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 11}, lex.Location{0, 12}},
-			&lex.Token{lex.Name, "./main", lex.Location{0, 12}, lex.Location{0, 18}},
+		Input: "abc foo.txt ./main --verbose=1",
+		Tokens: []lex.Token{
+			lex.Token{lex.Name, "abc", 0, 1},
+			lex.Token{lex.Space, " ", 3, 1},
+			lex.Token{lex.Name, "foo.txt", 4, 1},
+			lex.Token{lex.Space, " ", 11, 1},
+			lex.Token{lex.Name, "./main", 12, 1},
+			lex.Token{lex.Space, " ", 18, 1},
+			lex.Token{lex.Name, "--verbose=1", 19, 1},
+			lex.Token{lex.EOF, "", 30, 1},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		Input: "1abc 234a 5b7",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.Word, "1abc", lex.Location{0, 0}, lex.Location{0, 4}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 4}, lex.Location{0, 5}},
-			&lex.Token{lex.Word, "234a", lex.Location{0, 5}, lex.Location{0, 9}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 9}, lex.Location{0, 10}},
-			&lex.Token{lex.Word, "5b7", lex.Location{0, 10}, lex.Location{0, 13}},
+		Tokens: []lex.Token{
+			lex.Token{lex.Word, "1abc", 0, 1},
+			lex.Token{lex.Space, " ", 4, 1},
+			lex.Token{lex.Word, "234a", 5, 1},
+			lex.Token{lex.Space, " ", 9, 1},
+			lex.Token{lex.Word, "5b7", 10, 1},
+			lex.Token{lex.EOF, "", 13, 1},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		Input: "123",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.Number, "123", lex.Location{0, 0}, lex.Location{0, 3}},
+		Tokens: []lex.Token{
+			lex.Token{lex.Number, "123", 0, 1},
+			lex.Token{lex.EOF, "", 3, 1},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		Input: "a23 4ef ghi",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.Name, "a23", lex.Location{0, 0}, lex.Location{0, 3}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 3}, lex.Location{0, 4}},
-			&lex.Token{lex.Word, "4ef", lex.Location{0, 4}, lex.Location{0, 7}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 7}, lex.Location{0, 8}},
-			&lex.Token{lex.Name, "ghi", lex.Location{0, 8}, lex.Location{0, 11}},
+		Tokens: []lex.Token{
+			lex.Token{lex.Name, "a23", 0, 1},
+			lex.Token{lex.Space, " ", 3, 1},
+			lex.Token{lex.Word, "4ef", 4, 1},
+			lex.Token{lex.Space, " ", 7, 1},
+			lex.Token{lex.Name, "ghi", 8, 1},
+			lex.Token{lex.EOF, "", 11, 1},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		Input: "\n\n\n\n",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.Newline, "\n", lex.Location{0, 0}, lex.Location{1, 0}},
-			&lex.Token{lex.Newline, "\n", lex.Location{1, 0}, lex.Location{2, 0}},
-			&lex.Token{lex.Newline, "\n", lex.Location{2, 0}, lex.Location{3, 0}},
-			&lex.Token{lex.Newline, "\n", lex.Location{3, 0}, lex.Location{4, 0}},
+		Tokens: []lex.Token{
+			lex.Token{lex.Newline, "\n", 0, 1},
+			lex.Token{lex.Newline, "\n", 1, 2},
+			lex.Token{lex.Newline, "\n", 2, 3},
+			lex.Token{lex.Newline, "\n", 3, 4},
+			lex.Token{lex.EOF, "", 4, 5},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		Input: "a \n 2b\nc\n ",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.Name, "a", lex.Location{0, 0}, lex.Location{0, 1}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 1}, lex.Location{0, 2}},
-			&lex.Token{lex.Newline, "\n", lex.Location{0, 2}, lex.Location{1, 0}},
-			&lex.Token{lex.Space, " ", lex.Location{1, 0}, lex.Location{1, 1}},
-			&lex.Token{lex.Word, "2b", lex.Location{1, 1}, lex.Location{1, 3}},
-			&lex.Token{lex.Newline, "\n", lex.Location{1, 3}, lex.Location{2, 0}},
-			&lex.Token{lex.Name, "c", lex.Location{2, 0}, lex.Location{2, 1}},
-			&lex.Token{lex.Newline, "\n", lex.Location{2, 1}, lex.Location{3, 0}},
-			&lex.Token{lex.Space, " ", lex.Location{3, 0}, lex.Location{3, 1}},
+		Tokens: []lex.Token{
+			lex.Token{lex.Name, "a", 0, 1},
+			lex.Token{lex.Space, " ", 1, 1},
+			lex.Token{lex.Newline, "\n", 2, 1},
+			lex.Token{lex.Space, " ", 3, 2},
+			lex.Token{lex.Word, "2b", 4, 2},
+			lex.Token{lex.Newline, "\n", 6, 2},
+			lex.Token{lex.Name, "c", 7, 3},
+			lex.Token{lex.Newline, "\n", 8, 3},
+			lex.Token{lex.Space, " ", 9, 4},
+			lex.Token{lex.EOF, "", 10, 4},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		Input: "a  &&  b  ||  c",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.Name, "a", lex.Location{0, 0}, lex.Location{0, 1}},
-			&lex.Token{lex.Space, "  ", lex.Location{0, 1}, lex.Location{0, 3}},
-			&lex.Token{lex.AndIf, "&&", lex.Location{0, 3}, lex.Location{0, 5}},
-			&lex.Token{lex.Space, "  ", lex.Location{0, 5}, lex.Location{0, 7}},
-			&lex.Token{lex.Name, "b", lex.Location{0, 7}, lex.Location{0, 8}},
-			&lex.Token{lex.Space, "  ", lex.Location{0, 8}, lex.Location{0, 10}},
-			&lex.Token{lex.OrIf, "||", lex.Location{0, 10}, lex.Location{0, 12}},
-			&lex.Token{lex.Space, "  ", lex.Location{0, 12}, lex.Location{0, 14}},
-			&lex.Token{lex.Name, "c", lex.Location{0, 14}, lex.Location{0, 15}},
+		Tokens: []lex.Token{
+			lex.Token{lex.Name, "a", 0, 1},
+			lex.Token{lex.Space, "  ", 1, 1},
+			lex.Token{lex.AndIf, "&&", 3, 1},
+			lex.Token{lex.Space, "  ", 5, 1},
+			lex.Token{lex.Name, "b", 7, 1},
+			lex.Token{lex.Space, "  ", 8, 1},
+			lex.Token{lex.OrIf, "||", 10, 1},
+			lex.Token{lex.Space, "  ", 12, 1},
+			lex.Token{lex.Name, "c", 14, 1},
+			lex.Token{lex.EOF, "", 15, 1},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		Input: "for var in items; do echo; done",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.For, "for", lex.Location{0, 0}, lex.Location{0, 3}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 3}, lex.Location{0, 4}},
-			&lex.Token{lex.Name, "var", lex.Location{0, 4}, lex.Location{0, 7}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 7}, lex.Location{0, 8}},
-			&lex.Token{lex.In, "in", lex.Location{0, 8}, lex.Location{0, 10}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 10}, lex.Location{0, 11}},
-			&lex.Token{lex.Name, "items", lex.Location{0, 11}, lex.Location{0, 16}},
-			&lex.Token{lex.Semi, ";", lex.Location{0, 16}, lex.Location{0, 17}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 17}, lex.Location{0, 18}},
-			&lex.Token{lex.Do, "do", lex.Location{0, 18}, lex.Location{0, 20}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 20}, lex.Location{0, 21}},
-			&lex.Token{lex.Name, "echo", lex.Location{0, 21}, lex.Location{0, 25}},
-			&lex.Token{lex.Semi, ";", lex.Location{0, 25}, lex.Location{0, 26}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 26}, lex.Location{0, 27}},
-			&lex.Token{lex.Done, "done", lex.Location{0, 27}, lex.Location{0, 31}},
+		Tokens: []lex.Token{
+			lex.Token{lex.For, "for", 0, 1},
+			lex.Token{lex.Space, " ", 3, 1},
+			lex.Token{lex.Name, "var", 4, 1},
+			lex.Token{lex.Space, " ", 7, 1},
+			lex.Token{lex.In, "in", 8, 1},
+			lex.Token{lex.Space, " ", 10, 1},
+			lex.Token{lex.Name, "items", 11, 1},
+			lex.Token{lex.Semi, ";", 16, 1},
+			lex.Token{lex.Space, " ", 17, 1},
+			lex.Token{lex.Do, "do", 18, 1},
+			lex.Token{lex.Space, " ", 20, 1},
+			lex.Token{lex.Name, "echo", 21, 1},
+			lex.Token{lex.Semi, ";", 25, 1},
+			lex.Token{lex.Space, " ", 26, 1},
+			lex.Token{lex.Done, "done", 27, 1},
+			lex.Token{lex.EOF, "", 31, 1},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		Input: "&&&",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.AndIf, "&&", lex.Location{0, 0}, lex.Location{0, 2}},
-			&lex.Token{lex.Ampersand, "&", lex.Location{0, 2}, lex.Location{0, 3}},
+		Tokens: []lex.Token{
+			lex.Token{lex.AndIf, "&&", 0, 1},
+			lex.Token{lex.Ampersand, "&", 2, 1},
+			lex.Token{lex.EOF, "", 3, 1},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		Input: "<<<<-",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.DoubleLess, "<<", lex.Location{0, 0}, lex.Location{0, 2}},
-			&lex.Token{lex.DoubleLessDash, "<<-", lex.Location{0, 2}, lex.Location{0, 5}},
+		Tokens: []lex.Token{
+			lex.Token{lex.DoubleLess, "<<", 0, 1},
+			lex.Token{lex.DoubleLessDash, "<<-", 2, 1},
+			lex.Token{lex.EOF, "", 5, 1},
 		},
-		Error: io.EOF,
-	},
-	lexData{
-		Input: "<-",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.Less, "<", lex.Location{0, 0}, lex.Location{0, 1}},
-		},
-		Error: fmt.Errorf(`Syntax error near '-'`),
 	},
 	lexData{
 		Input: "< >",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.Less, "<", lex.Location{0, 0}, lex.Location{0, 1}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 1}, lex.Location{0, 2}},
-			&lex.Token{lex.Great, ">", lex.Location{0, 2}, lex.Location{0, 3}},
+		Tokens: []lex.Token{
+			lex.Token{lex.Less, "<", 0, 1},
+			lex.Token{lex.Space, " ", 1, 1},
+			lex.Token{lex.Great, ">", 2, 1},
+			lex.Token{lex.EOF, "", 3, 1},
 		},
-		Error: io.EOF,
 	},
 	lexData{
-		Input: "<>",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.LessGreat, "<>", lex.Location{0, 0}, lex.Location{0, 2}},
+		Input: "<<<>>>",
+		Tokens: []lex.Token{
+			lex.Token{lex.DoubleLess, "<<", 0, 1},
+			lex.Token{lex.LessGreat, "<>", 2, 1},
+			lex.Token{lex.DoubleGreat, ">>", 4, 1},
+			lex.Token{lex.EOF, "", 6, 1},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		Input: "<<>>",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.DoubleLess, "<<", lex.Location{0, 0}, lex.Location{0, 2}},
-			&lex.Token{lex.DoubleGreat, ">>", lex.Location{0, 2}, lex.Location{0, 4}},
+		Tokens: []lex.Token{
+			lex.Token{lex.DoubleLess, "<<", 0, 1},
+			lex.Token{lex.DoubleGreat, ">>", 2, 1},
+			lex.Token{lex.EOF, "", 4, 1},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		Input: "$",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.Dollar, "$", lex.Location{0, 0}, lex.Location{0, 1}},
+		Tokens: []lex.Token{
+			lex.Token{lex.Dollar, "$", 0, 1},
+			lex.Token{lex.EOF, "", 1, 1},
 		},
-		Error: io.EOF,
+	},
+	lexData{
+		Input: "''",
+		Tokens: []lex.Token{
+			lex.Token{lex.SingleQuote, "'", 0, 1},
+			lex.Token{lex.StringSegment, "", 1, 1},
+			lex.Token{lex.SingleQuote, "'", 1, 1},
+			lex.Token{lex.EOF, "", 2, 1},
+		},
 	},
 	lexData{
 		// single-quoted strings do not understand backslash escapes
-		Input: `'' '\' '\'''`,
-		Tokens: []*lex.Token{
-			&lex.Token{lex.StringSegment, "", lex.Location{0, 0}, lex.Location{0, 2}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 2}, lex.Location{0, 3}},
-			&lex.Token{lex.StringSegment, `\`, lex.Location{0, 3}, lex.Location{0, 6}},
-			&lex.Token{lex.Space, " ", lex.Location{0, 6}, lex.Location{0, 7}},
-			&lex.Token{lex.StringSegment, `\`, lex.Location{0, 7}, lex.Location{0, 10}},
-			&lex.Token{lex.StringSegment, "", lex.Location{0, 10}, lex.Location{0, 12}},
+		Input: `'\' '\'''`,
+		Tokens: []lex.Token{
+			lex.Token{lex.SingleQuote, "'", 0, 1},
+			lex.Token{lex.StringSegment, `\`, 1, 1},
+			lex.Token{lex.SingleQuote, "'", 2, 1},
+			lex.Token{lex.Space, " ", 3, 1},
+			lex.Token{lex.SingleQuote, "'", 4, 1},
+			lex.Token{lex.StringSegment, `\`, 5, 1},
+			lex.Token{lex.SingleQuote, "'", 6, 1},
+			lex.Token{lex.SingleQuote, "'", 7, 1},
+			lex.Token{lex.StringSegment, "", 8, 1},
+			lex.Token{lex.SingleQuote, "'", 8, 1},
+			lex.Token{lex.EOF, "", 9, 1},
 		},
-		Error: io.EOF,
 	},
 	lexData{
 		// single-quoted strings do not understand parameter expansions
 		Input: `'$WUMBO'`,
-		Tokens: []*lex.Token{
-			&lex.Token{lex.StringSegment, `$WUMBO`, lex.Location{0, 0}, lex.Location{0, 8}},
+		Tokens: []lex.Token{
+			lex.Token{lex.SingleQuote, "'", 0, 1},
+			lex.Token{lex.StringSegment, "$WUMBO", 1, 1},
+			lex.Token{lex.SingleQuote, "'", 7, 1},
+			lex.Token{lex.EOF, "", 8, 1},
 		},
-		Error: io.EOF,
 	},
-	lexData{
-		Input: `"$WUMBO"`,
-		Tokens: []*lex.Token{
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
-			&lex.Token{lex.Dollar, `$`, lex.Location{0, 1}, lex.Location{0, 2}},
-			&lex.Token{lex.Name, `WUMBO`, lex.Location{0, 2}, lex.Location{0, 7}},
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 7}, lex.Location{0, 8}},
-		},
-		Error: io.EOF,
-	},
-	lexData{
-		Input: "\"$WUMBO \n $MINI\"",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
-			&lex.Token{lex.Dollar, `$`, lex.Location{0, 1}, lex.Location{0, 2}},
-			&lex.Token{lex.Name, `WUMBO`, lex.Location{0, 2}, lex.Location{0, 7}},
-			&lex.Token{lex.StringSegment, " \n ", lex.Location{0, 7}, lex.Location{1, 1}},
-			&lex.Token{lex.Dollar, `$`, lex.Location{1, 1}, lex.Location{1, 2}},
-			&lex.Token{lex.Name, `MINI`, lex.Location{1, 2}, lex.Location{1, 6}},
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{1, 6}, lex.Location{1, 7}},
-		},
-		Error: io.EOF,
-	},
-	lexData{
-		Input: `"\$"`,
-		Tokens: []*lex.Token{
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
-			&lex.Token{lex.StringSegment, `$`, lex.Location{0, 1}, lex.Location{0, 3}},
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 3}, lex.Location{0, 4}},
-		},
-		Error: io.EOF,
-	},
-	lexData{
-		Input: `"\\"`,
-		Tokens: []*lex.Token{
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
-			&lex.Token{lex.StringSegment, `\`, lex.Location{0, 1}, lex.Location{0, 3}},
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 3}, lex.Location{0, 4}},
-		},
-		Error: io.EOF,
-	},
-	lexData{
-		// "\`" -- checking an escaped backtick within a double-quoted string
-		Input: "\"\\`\"",
-		Tokens: []*lex.Token{
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
-			&lex.Token{lex.StringSegment, "`", lex.Location{0, 1}, lex.Location{0, 3}},
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 3}, lex.Location{0, 4}},
-		},
-		Error: io.EOF,
-	},
-	lexData{
-		Input: `"\""`,
-		Tokens: []*lex.Token{
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
-			&lex.Token{lex.StringSegment, `"`, lex.Location{0, 1}, lex.Location{0, 3}},
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 3}, lex.Location{0, 4}},
-		},
-		Error: io.EOF,
-	},
-	lexData{
-		Input: `"$\$$\$"`,
-		Tokens: []*lex.Token{
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
-			// Is this what we want? Escaped dollars cannot be used to start
-			// variables or param expansions, so this is probably fine.
-			&lex.Token{lex.Dollar, `$`, lex.Location{0, 1}, lex.Location{0, 2}},
-			&lex.Token{lex.StringSegment, `$`, lex.Location{0, 2}, lex.Location{0, 4}},
-			&lex.Token{lex.Dollar, `$`, lex.Location{0, 4}, lex.Location{0, 5}},
-			&lex.Token{lex.StringSegment, `$`, lex.Location{0, 5}, lex.Location{0, 7}},
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 7}, lex.Location{0, 8}},
-		},
-		Error: io.EOF,
-	},
-	lexData{
-		Input:  `"unclosed-string`,
-		Tokens: nil,
-		Error:  fmt.Errorf("Unclosed double-quoted string"),
-	},
-	lexData{
-		Input: `"${WUMBO}"`,
-		Tokens: []*lex.Token{
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
-			&lex.Token{lex.Dollar, `$`, lex.Location{0, 1}, lex.Location{0, 2}},
-			&lex.Token{lex.LeftBrace, `{`, lex.Location{0, 2}, lex.Location{0, 3}},
-			&lex.Token{lex.Name, `WUMBO`, lex.Location{0, 3}, lex.Location{0, 8}},
-			&lex.Token{lex.RightBrace, `}`, lex.Location{0, 8}, lex.Location{0, 9}},
-			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 9}, lex.Location{0, 10}},
-		},
-		Error: io.EOF,
-	},
+	//	lexData{
+	//		Input: `"$WUMBO"`,
+	//		Tokens: []*lex.Token{
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
+	//			&lex.Token{lex.Dollar, `$`, lex.Location{0, 1}, lex.Location{0, 2}},
+	//			&lex.Token{lex.Name, `WUMBO`, lex.Location{0, 2}, lex.Location{0, 7}},
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 7}, lex.Location{0, 8}},
+	//		},
+	//		Error: io.EOF,
+	//	},
+	//	lexData{
+	//		Input: "\"$WUMBO \n $MINI\"",
+	//		Tokens: []*lex.Token{
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
+	//			&lex.Token{lex.Dollar, `$`, lex.Location{0, 1}, lex.Location{0, 2}},
+	//			&lex.Token{lex.Name, `WUMBO`, lex.Location{0, 2}, lex.Location{0, 7}},
+	//			&lex.Token{lex.StringSegment, " \n ", lex.Location{0, 7}, lex.Location{1, 1}},
+	//			&lex.Token{lex.Dollar, `$`, lex.Location{1, 1}, lex.Location{1, 2}},
+	//			&lex.Token{lex.Name, `MINI`, lex.Location{1, 2}, lex.Location{1, 6}},
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{1, 6}, lex.Location{1, 7}},
+	//		},
+	//		Error: io.EOF,
+	//	},
+	//	lexData{
+	//		Input: `"\$"`,
+	//		Tokens: []*lex.Token{
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
+	//			&lex.Token{lex.StringSegment, `$`, lex.Location{0, 1}, lex.Location{0, 3}},
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 3}, lex.Location{0, 4}},
+	//		},
+	//		Error: io.EOF,
+	//	},
+	//	lexData{
+	//		Input: `"\\"`,
+	//		Tokens: []*lex.Token{
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
+	//			&lex.Token{lex.StringSegment, `\`, lex.Location{0, 1}, lex.Location{0, 3}},
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 3}, lex.Location{0, 4}},
+	//		},
+	//		Error: io.EOF,
+	//	},
+	//	lexData{
+	//		// "\`" -- checking an escaped backtick within a double-quoted string
+	//		Input: "\"\\`\"",
+	//		Tokens: []*lex.Token{
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
+	//			&lex.Token{lex.StringSegment, "`", lex.Location{0, 1}, lex.Location{0, 3}},
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 3}, lex.Location{0, 4}},
+	//		},
+	//		Error: io.EOF,
+	//	},
+	//	lexData{
+	//		Input: `"\""`,
+	//		Tokens: []*lex.Token{
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
+	//			&lex.Token{lex.StringSegment, `"`, lex.Location{0, 1}, lex.Location{0, 3}},
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 3}, lex.Location{0, 4}},
+	//		},
+	//		Error: io.EOF,
+	//	},
+	//	lexData{
+	//		Input: `"$\$$\$"`,
+	//		Tokens: []*lex.Token{
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
+	//			// Is this what we want? Escaped dollars cannot be used to start
+	//			// variables or param expansions, so this is probably fine.
+	//			&lex.Token{lex.Dollar, `$`, lex.Location{0, 1}, lex.Location{0, 2}},
+	//			&lex.Token{lex.StringSegment, `$`, lex.Location{0, 2}, lex.Location{0, 4}},
+	//			&lex.Token{lex.Dollar, `$`, lex.Location{0, 4}, lex.Location{0, 5}},
+	//			&lex.Token{lex.StringSegment, `$`, lex.Location{0, 5}, lex.Location{0, 7}},
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 7}, lex.Location{0, 8}},
+	//		},
+	//		Error: io.EOF,
+	//	},
+	//	lexData{
+	//		Input:  `"unclosed-string`,
+	//		Tokens: nil,
+	//		Error:  fmt.Errorf("Unclosed double-quoted string"),
+	//	},
+	//	lexData{
+	//		Input: `"${WUMBO}"`,
+	//		Tokens: []*lex.Token{
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 0}, lex.Location{0, 1}},
+	//			&lex.Token{lex.Dollar, `$`, lex.Location{0, 1}, lex.Location{0, 2}},
+	//			&lex.Token{lex.LeftBrace, `{`, lex.Location{0, 2}, lex.Location{0, 3}},
+	//			&lex.Token{lex.Name, `WUMBO`, lex.Location{0, 3}, lex.Location{0, 8}},
+	//			&lex.Token{lex.RightBrace, `}`, lex.Location{0, 8}, lex.Location{0, 9}},
+	//			&lex.Token{lex.DoubleQuote, `"`, lex.Location{0, 9}, lex.Location{0, 10}},
+	//		},
+	//		Error: io.EOF,
+	//	},
 }
