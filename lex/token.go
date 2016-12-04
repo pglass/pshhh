@@ -2,38 +2,27 @@ package lex
 
 import (
 	"fmt"
+	"strings"
 	"unicode"
 )
 
 func IsWordChar(c rune) bool {
-	return unicode.IsLetter(c) || unicode.IsDigit(c) || c == '.' || c == '/'
-}
-
-type Location struct {
-	LineNumber int
-	Column     int
-}
-
-func (loc *Location) Copy() Location {
-	return Location{
-		LineNumber: loc.LineNumber,
-		Column:     loc.Column,
-	}
-}
-
-func (loc Location) Format(f fmt.State, c rune) {
-	fmt.Fprintf(f, "%v:%v", loc.LineNumber, loc.Column)
+	return unicode.IsLetter(c) || unicode.IsDigit(c) || strings.ContainsRune("./=-", c)
 }
 
 type Token struct {
-	Type  TokenType
-	Text  string
-	Start Location
-	End   Location
+	Type TokenType
+	Text string
+	Pos  int
+	Line int
 }
 
-func (t *Token) Format(f fmt.State, c rune) {
-	fmt.Fprintf(f, "%v(%q %v %v)", t.Type, t.Text, t.Start, t.End)
+func (t Token) Format(f fmt.State, c rune) {
+	if t.Type == ERROR {
+		fmt.Fprintf(f, "%v (line %v): %v", t.Type, t.Line, t.Text)
+	} else {
+		fmt.Fprintf(f, "%v(%q %v, %v)", t.Type, t.Text, t.Pos, t.Line)
+	}
 }
 
 // When adding a token type here, update the TokenTypeString and
@@ -42,6 +31,8 @@ type TokenType int
 
 const (
 	Unknown TokenType = iota
+	EOF
+	ERROR
 	Word
 	AssignmentWord
 	Name
@@ -69,6 +60,7 @@ const (
 	SingleQuote
 	DoubleQuote
 	StringSegment
+	Equals
 
 	If
 	Then
@@ -98,6 +90,10 @@ func (tt TokenType) Format(f fmt.State, c rune) {
 	switch tt {
 	case Unknown:
 		text = "Unkown"
+	case EOF:
+		text = "EOF"
+	case ERROR:
+		text = "ERROR"
 	case Word:
 		text = "Word"
 	case AssignmentWord:
@@ -191,93 +187,173 @@ func (tt TokenType) Format(f fmt.State, c rune) {
 		text = "Bang"
 	case In:
 		text = "In"
+	case Equals:
+		text = "Equals"
+
 	default:
 		text = fmt.Sprintf("<TokenType %v>", tt)
 	}
 	fmt.Fprintf(f, "%v", text)
 }
 
-func TokenTypeFromString(text string) TokenType {
-	switch text {
-	case "&":
-		return Ampersand
-	case "&&":
-		return AndIf
-	case "|":
-		return Pipe
-	case "||":
-		return OrIf
-	case ";":
-		return Semi
-	case ";;":
-		return DoubleSemi
+var OPERATORS = map[string]TokenType{
+	"&":   Ampersand,
+	"&&":  AndIf,
+	"|":   Pipe,
+	"||":  OrIf,
+	";":   Semi,
+	";;":  DoubleSemi,
+	"<":   Less,
+	">":   Great,
+	"<<":  DoubleLess,
+	">>":  DoubleGreat,
+	"<&":  LessAnd,
+	">&":  GreatAnd,
+	"<>":  LessGreat,
+	"<<-": DoubleLessDash,
+	">|":  Clobber,
+	"$":   Dollar,
+	"'":   SingleQuote,
+	`"`:   DoubleQuote,
+	"{":   LeftBrace,
+	"}":   RightBrace,
+	"(":   LeftParen,
+	")":   RightParen,
+	"!":   Bang,
+	"=":   Equals,
+}
 
-	case "<":
-		return Less
-	case ">":
-		return Great
-	case "<<":
-		return DoubleLess
-	case ">>":
-		return DoubleGreat
-	case "<&":
-		return LessAnd
-	case ">&":
-		return GreatAnd
-	case "<>":
-		return LessGreat
-	case "<<-":
-		return DoubleLessDash
-	case ">|":
-		return Clobber
-	case "$":
-		return Dollar
-	case "'":
-		return SingleQuote
-	case `"`:
-		return DoubleQuote
+var RESERVED_WORDS = map[string]TokenType{
+	"if":       If,
+	"then":     Then,
+	"else":     Else,
+	"elif":     Elif,
+	"fi":       Fi,
+	"do":       Do,
+	"done":     Done,
+	"case":     Case,
+	"esac":     Esac,
+	"while":    While,
+	"until":    Until,
+	"for":      For,
+	"function": Function,
+	"in":       In,
+}
 
-	case "if":
-		return If
-	case "then":
-		return Then
-	case "else":
-		return Else
-	case "elif":
-		return Elif
-	case "fi":
-		return Fi
-	case "do":
-		return Do
-	case "done":
-		return Done
+// func TokenTypeFromString(text string) TokenType {
+// 	switch text {
+// 	case "&":
+// 		return Ampersand
+// 	case "&&":
+// 		return AndIf
+// 	case "|":
+// 		return Pipe
+// 	case "||":
+// 		return OrIf
+// 	case ";":
+// 		return Semi
+// 	case ";;":
+// 		return DoubleSemi
+//
+// 	case "<":
+// 		return Less
+// 	case ">":
+// 		return Great
+// 	case "<<":
+// 		return DoubleLess
+// 	case ">>":
+// 		return DoubleGreat
+// 	case "<&":
+// 		return LessAnd
+// 	case ">&":
+// 		return GreatAnd
+// 	case "<>":
+// 		return LessGreat
+// 	case "<<-":
+// 		return DoubleLessDash
+// 	case ">|":
+// 		return Clobber
+// 	case "$":
+// 		return Dollar
+// 	case "'":
+// 		return SingleQuote
+// 	case `"`:
+// 		return DoubleQuote
+//
+// 	case "if":
+// 		return If
+// 	case "then":
+// 		return Then
+// 	case "else":
+// 		return Else
+// 	case "elif":
+// 		return Elif
+// 	case "fi":
+// 		return Fi
+// 	case "do":
+// 		return Do
+// 	case "done":
+// 		return Done
+//
+// 	case "case":
+// 		return Case
+// 	case "esac":
+// 		return Esac
+// 	case "while":
+// 		return While
+// 	case "until":
+// 		return Until
+// 	case "for":
+// 		return For
+// 	case "function":
+// 		return Function
+//
+// 	case "{":
+// 		return LeftBrace
+// 	case "}":
+// 		return RightBrace
+// 	case "(":
+// 		return LeftParen
+// 	case ")":
+// 		return RightParen
+// 	case "!":
+// 		return Bang
+// 	case "in":
+// 		return In
+// 	}
+//
+// 	return Unknown
+// }
+//
 
-	case "case":
-		return Case
-	case "esac":
-		return Esac
-	case "while":
-		return While
-	case "until":
-		return Until
-	case "for":
-		return For
-	case "function":
-		return Function
-
-	case "{":
-		return LeftBrace
-	case "}":
-		return RightBrace
-	case "(":
-		return LeftParen
-	case ")":
-		return RightParen
-	case "!":
-		return Bang
-	case "in":
-		return In
+func possiblePunctation(c rune) bool {
+	switch c {
+	case ';':
+		return true
+	case '$':
+		return true
+	case '&':
+		return true
+	case '|':
+		return true
+	case '<':
+		return true
+	case '>':
+		return true
+	case '/':
+		return true
+	case '{':
+		return true
+	case '}':
+		return true
+	case '!':
+		return true
+	case '(':
+		return true
+	case ')':
+		return true
+	case '=':
+		return true
 	}
-
-	return Unknown
+	return false
 }

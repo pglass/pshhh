@@ -1,16 +1,14 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
-	"psh/ast"
-	"psh/exe"
+	//	"psh/ast"
+	//	"psh/exe"
 	"psh/lex"
-	"strings"
+	//"strings"
 )
 
 type EnvVars []string
@@ -43,13 +41,13 @@ func main() {
 
 	var lexer *lex.Lexer = nil
 	if filename != "" {
-		if f, err := os.Open(filename); err != nil {
+		if b, err := ioutil.ReadFile(filename); err != nil {
 			log.Fatal(err)
 		} else {
-			lexer = lex.NewLexer(bufio.NewReader(f))
+			lexer = lex.NewLexer(string(b))
 		}
 	} else if text != "" {
-		lexer = lex.NewLexer(strings.NewReader(text))
+		lexer = lex.NewLexer(text)
 	}
 
 	if lexer == nil {
@@ -62,22 +60,35 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	parser := ast.NewParser(lexer)
-
-	root, err := parser.Parse()
-	if err != nil {
-		fmt.Printf("%v\n", err)
-	} else if root == nil {
-		fmt.Printf("Parse failure (got nil node)\n")
-	} else {
-		interpreter := exe.NewInterpreter()
-		interpreter.Env = env_vars
-
-		log.Printf("Environment:")
-		for _, item := range interpreter.Env {
-			log.Printf("  %v", item)
+	for {
+		tok := lexer.Next()
+		switch tok.Type {
+		case lex.EOF:
+			return
+		case lex.ERROR:
+			fmt.Print(tok)
+			return
+		default:
+			fmt.Print(tok)
 		}
-
-		interpreter.Interpret(root)
 	}
+
+	//	parser := ast.NewParser(lexer)
+	//
+	//	root, err := parser.Parse()
+	//	if err != nil {
+	//		fmt.Printf("%v\n", err)
+	//	} else if root == nil {
+	//		fmt.Printf("Parse failure (got nil node)\n")
+	//	} else {
+	//		interpreter := exe.NewInterpreter()
+	//		interpreter.Env = env_vars
+	//
+	//		log.Printf("Environment:")
+	//		for _, item := range interpreter.Env {
+	//			log.Printf("  %v", item)
+	//		}
+	//
+	//		interpreter.Interpret(root)
+	//	}
 }
