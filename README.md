@@ -1,7 +1,9 @@
 Overview
 --------
 
-This is a POSIX shell written in [Go](https://golang.org/).
+This is a POSIX-compliant\* shell written in [Go](https://golang.org/).
+
+\*: (not really)
 
 TODO
 ----
@@ -25,12 +27,14 @@ Links:
 
 - [POSIX shell reference](http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html)
 - [Bash reference manual](https://tiswww.case.edu/php/chet/bash/bashref.html)
+- [Rob Pike's talk on the Golang template lexer](https://www.youtube.com/watch?v=HxaD_trXwRE)
+- [Golang template lexer source](https://github.com/golang/go/blob/master/src/text/template/parse/lex.go)
 
 ### For loops
 
 There are three forms of for loops.
 
-1. For loop with a sequence.
+##### 1. For loop with a sequence.
 
 ```
 for x in `seq 1 10`; do
@@ -38,18 +42,20 @@ for x in `seq 1 10`; do
 done
 ```
 
-2. For loop with `in` but with no sequence. This is interpreted as an empty
-sequence, so no loop iterations are done (e.g. if your sequence comes from an
-empty shell variable, the loop does nothing).
+##### 2. For loop with `in` but with no sequence.
+
+This is interpreted as an empty sequence, so no loop iterations are done
+(e.g. if your sequence comes from an empty shell variable, the loop does nothing).
 
 ```
 for x in; do
     echo $x
 done
-``
+```
 
-3. For loop without an `in` clause. In this case, the loop iterates over `$@`,
-the command line arguments.
+##### 3. For loop without an `in` clause.
+
+In this case, the loop iterates over `$@`, the command line arguments.
 
 ```
 for x; do
@@ -57,7 +63,7 @@ for x; do
 done
 ```
 
-### And/Or
+### `&&`, `||`
 
 There is no order of operations for And/Or operators.
 
