@@ -1,47 +1,64 @@
 package lex
 
 import (
+	"bytes"
+	"strings"
 	"unicode"
 )
 
-type stateFn func(*Lexer) stateFn
+type stateFn func(*Lexer, stateFn) stateFn
 
-func lexText(lx *Lexer) stateFn {
+func lexSequence(lx *Lexer, state stateFn, states ...stateFn) stateFn {
+	nextState := lexText
+	if len(states) > 1 {
+		nextState = lexSequence(lx, states[0], states[1:]...)
+	} else if len(states) == 1 {
+		nextState = states[0]
+	}
+	return func(*Lexer, stateFn) stateFn {
+		return state(lx, nextState)
+	}
+}
+
+func lexText(lx *Lexer, nextState stateFn) stateFn {
 	c := lx.peekRune()
 	if c == eof {
 		lx.emit(EOF)
 		return nil
+	} else if c == '$' {
+		return lexDollarExpansion(lx, nextState)
 	} else if IsWordChar(c) {
-		return lexWord
+		return lexWord(lx, nextState)
 	} else if unicode.IsSpace(c) {
-		return lexSpace
+		return lexSpace(lx, nextState)
 	} else if c == '\'' {
-		return lexSingleQuotedString
+		return lexSingleQuotedString(lx, nextState)
+	} else if c == '"' {
+		return lexDoubleQuotedString(lx, nextState)
 	} else if unicode.IsPunct(c) || unicode.IsSymbol(c) {
-		return lexOperator
+		return lexOperator(lx, nextState)
 	} else {
 		return lx.errorf("Unexpected rune %q", c)
 	}
 }
 
 // Read a Word token (which may actually be a Name or Number)
-func lexWord(lx *Lexer) stateFn {
+func lexWord(lx *Lexer, nextState stateFn) stateFn {
 	// A WORD consisting of only digits is a NUMBER
 	// A WORD that does not start with a digit is a NAME
 	if unicode.IsDigit(lx.peekRune()) {
-		return lexNumberOrWord
-	}
-
-	for IsWordChar(lx.peekRune()) {
-		lx.nextRune()
+		return lexNumberOrWord(lx, nextState)
+	} else {
+		for IsWordChar(lx.peekRune()) {
+			lx.nextRune()
+		}
 	}
 
 	lx.emit(Name)
-	return lexText
+	return nextState
 }
 
-// Read a Number or Word token
-func lexNumberOrWord(lx *Lexer) stateFn {
+func lexNumberOrWord(lx *Lexer, nextState stateFn) stateFn {
 	if c := lx.nextRune(); !unicode.IsDigit(c) {
 		return lx.errorf("Expected Name or Number to start with a digit (got %c)", c)
 	}
@@ -54,10 +71,10 @@ func lexNumberOrWord(lx *Lexer) stateFn {
 		}
 	}
 	lx.emit(ttype)
-	return lexText
+	return nextState
 }
 
-func lexSpace(lx *Lexer) stateFn {
+func lexSpace(lx *Lexer, nextState stateFn) stateFn {
 	if c := lx.nextRune(); !unicode.IsSpace(c) {
 		return lx.errorf("Expected Space or Newline to start with a space char (got %c)", c)
 	} else if c == '\n' {
@@ -76,10 +93,10 @@ func lexSpace(lx *Lexer) stateFn {
 		}
 		lx.emit(Space)
 	}
-	return lexText
+	return nextState
 }
 
-func lexOperator(lx *Lexer) stateFn {
+func lexOperator(lx *Lexer, nextState stateFn) stateFn {
 	var result_op string = ""
 	var result_ttype TokenType
 
@@ -100,10 +117,10 @@ func lexOperator(lx *Lexer) stateFn {
 		lx.nextRune()
 	}
 	lx.emit(result_ttype)
-	return lexText
+	return nextState
 }
 
-func lexSingleQuotedString(lx *Lexer) stateFn {
+func lexSingleQuotedString(lx *Lexer, nextState stateFn) stateFn {
 	if c := lx.nextRune(); c != '\'' {
 		return lx.errorf("Expected single quote to start a string (got %c)", c)
 	} else {
@@ -124,5 +141,109 @@ func lexSingleQuotedString(lx *Lexer) stateFn {
 	lx.emit(StringSegment)
 	lx.nextRune()
 	lx.emit(SingleQuote)
-	return lexText
+	return nextState
+}
+
+func lexDoubleQuotedString(lx *Lexer, nextState stateFn) stateFn {
+	if c := lx.nextRune(); c != '"' {
+		return lx.errorf("Expected double quote to start a string (got %c)", c)
+	} else {
+		lx.emit(DoubleQuote)
+	}
+
+	return lexSequence(lx, lexDoubleQuotedStringContents, nextState)
+}
+
+func lexDoubleQuotedStringContents(lx *Lexer, nextState stateFn) stateFn {
+	var buffer bytes.Buffer
+	for {
+		c := lx.peekRune()
+		if c == '"' {
+			lx.emitBuffer(StringSegment, buffer)
+			lx.nextRune()
+			lx.emit(DoubleQuote)
+			break
+		} else if c == eof {
+			return lx.errorf("Unclosed string")
+		} else if c == '\\' {
+			lx.nextRune()
+			cc := lx.peekRune()
+			if strings.ContainsRune("$`\"\\", cc) {
+				lx.nextRune()
+				buffer.WriteRune(cc)
+			} else if cc == '\n' {
+				lx.nextRune()
+			} else {
+				buffer.WriteRune(c)
+			}
+		} else if c == '$' {
+			lx.emitBuffer(StringSegment, buffer)
+			return lexSequence(lx, lexDollarExpansion, lexDoubleQuotedStringContents, nextState)
+		} else {
+			lx.nextRune()
+			buffer.WriteRune(c)
+		}
+	}
+	return nextState
+}
+
+func lexDollarExpansion(lx *Lexer, nextState stateFn) stateFn {
+	if c := lx.nextRune(); c != '$' {
+		return lx.errorf("Expected '$' to start dollar expansion (got %c)", c)
+	} else {
+		lx.emit(Dollar)
+	}
+
+	c := lx.peekRune()
+	if c == '{' {
+		return lexBraceExpansion(lx, nextState)
+	} else if c == '(' {
+		return lexParenExpansion(lx, nextState)
+	} else if IsNameChar(c) {
+		return lexName(lx, nextState)
+	}
+	return nextState
+}
+
+func lexBraceExpansion(lx *Lexer, nextState stateFn) stateFn {
+	if c := lx.nextRune(); c != '{' {
+		return lx.errorf("Expected '{' to start brace expansion (got %c)", c)
+	} else {
+		lx.emit(LeftBrace)
+	}
+
+	c := lx.peekRune()
+	if IsNameChar(c) {
+		return lexSequence(lx, lexName, lexBraceExpansionEnd, nextState)
+	}
+
+	return nextState
+}
+
+func lexName(lx *Lexer, nextState stateFn) stateFn {
+	for c := lx.peekRune(); IsNameChar(c); c = lx.peekRune() {
+		lx.nextRune()
+	}
+	if lx.pos <= lx.start {
+		return lx.errorf("Expected Name in brace expansion")
+	}
+	lx.emit(Name)
+	return nextState
+}
+
+func lexBraceExpansionEnd(lx *Lexer, nextState stateFn) stateFn {
+	c := lx.peekRune()
+	if strings.ContainsRune(":+-=?", c) {
+		return lexSequence(lx, lexOperator, lexText, lexOperator, nextState)
+	} else if c == '}' {
+		lx.nextRune()
+		lx.emit(RightBrace)
+	} else {
+		return lx.errorf("Unclosed brace expansion (expected '}')")
+	}
+	return nextState
+}
+
+func lexParenExpansion(lx *Lexer, nextState stateFn) stateFn {
+	return nil
 }

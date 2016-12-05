@@ -2,7 +2,6 @@ package ast
 
 import (
 	"fmt"
-	"log"
 	"psh/lex"
 )
 
@@ -20,7 +19,6 @@ func (d *DoClause) Format(f fmt.State, c rune) {
 
 func (d *DoClause) Parse(parser *Parser) error {
 	// "do"
-	log.Printf("DoClause.Parse()")
 	if _, err := parser.ConsumeToken(lex.Do, nil); err != nil {
 		return err
 	}

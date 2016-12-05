@@ -40,11 +40,8 @@ func (a *AndOrClause) Parse(parser *Parser) error {
 		return nil
 	}
 
-	if tok, err := parser.Lexer.Next(); err != nil {
-		return err
-	} else {
-		a.Operator = tok
-	}
+	tok := parser.Lexer.Next()
+	a.Operator = &tok
 
 	parser.ConsumeWhile(lex.Space)
 

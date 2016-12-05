@@ -5,29 +5,15 @@ import (
 	"psh/lex"
 )
 
-type StringPiece interface {
-	fmt.Formatter
-	IsStringPiece()
-}
-
-type StringSegment lex.Token
-
-func (s *StringSegment) IsStringPiece() {}
-func (s *StringSegment) Format(f fmt.State, c rune) {
-	fmt.Fprintf(f, "StringSegment[%v]", s.Text)
-}
-
-// $NAME
-// ${NAME}
-// ${NAME:-WORD}
 type ParameterExpansion struct {
 	VarName  *lex.Token
 	Operator *lex.Token
-	Word     *lex.Token
+	Word     *Str
 }
 
-func (p *ParameterExpansion) IsStringPiece() {}
-func (p *ParameterExpansion) IsExpr()        {}
+func (p *ParameterExpansion) IsStrPiece() {}
+func (p *ParameterExpansion) IsExpr()     {}
+
 func (p *ParameterExpansion) Format(f fmt.State, c rune) {
 	fmt.Fprintf(f, "ParameterExpansion[")
 	if p.VarName != nil {
@@ -37,7 +23,7 @@ func (p *ParameterExpansion) Format(f fmt.State, c rune) {
 		fmt.Fprintf(f, "%v", p.Operator.Text)
 	}
 	if p.Word != nil {
-		fmt.Fprintf(f, "%v", p.Word.Text)
+		fmt.Fprintf(f, "%v", p.Word)
 	}
 	fmt.Fprintf(f, "]")
 }
@@ -47,23 +33,30 @@ func (p *ParameterExpansion) Parse(parser *Parser) error {
 		return err
 	}
 
-	// $ { NAME OP WORD }
 	if parser.Lexer.HasAnyToken(lex.LeftBrace) {
+		// $ { NAME OP WORD }
 		parser.ConsumeToken(lex.LeftBrace, nil)
 		if _, err := parser.ConsumeToken(lex.Name, &p.VarName); err != nil {
 			return err
 		}
 
-		// TODO: implement the "OP WORD" bit of this
+		if tok, _ := parser.ConsumeAny(lex.PARAMETER_EXPANSION_TTYPES...); tok != nil {
+			p.Operator = tok
+
+			str := NewStr()
+			err := str.Parse(parser)
+			if err != nil {
+				return err
+			}
+			p.Word = str
+		}
 
 		if _, err := parser.ConsumeToken(lex.RightBrace, nil); err != nil {
 			return err
 		}
 		return nil
-	}
-
-	// $ NAME
-	if _, err := parser.ConsumeToken(lex.Name, &p.VarName); err != nil {
+	} else if _, err := parser.ConsumeToken(lex.Name, &p.VarName); err != nil {
+		// $ NAME
 		return err
 	}
 	return nil

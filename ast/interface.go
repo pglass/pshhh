@@ -24,3 +24,8 @@ type Expr interface {
 	Parselet
 	IsExpr()
 }
+
+type StrPiece interface {
+	fmt.Formatter
+	IsStrPiece()
+}
