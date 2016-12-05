@@ -27,7 +27,7 @@ func (i *Interpreter) Interpret(node ast.Node) {
 		i.interpretGenericNode(n)
 	case *ast.CommandList:
 		i.interpretCommandList(n)
-	case *ast.String:
+	case *ast.Str:
 		// TODO: a string could be a param expansion that resolves to a command
 		// name, e.g. if you do `export FOO=echo; "$FOO"`
 		i.interpretString(n)
@@ -83,36 +83,67 @@ func (i *Interpreter) interpretSimpleCommand(node *ast.SimpleCommand) *PshProc {
 	return proc
 }
 
-func (i *Interpreter) interpretString(node *ast.String) string {
+func (i *Interpreter) interpretString(node *ast.Str) string {
 	var buffer bytes.Buffer
 	for _, piece := range node.Pieces {
 		switch p := piece.(type) {
-		case *ast.StringSegment:
-			buffer.WriteString(p.Text)
+		case ast.RawStr:
+			buffer.WriteString(string(p))
 		case *ast.ParameterExpansion:
+			word_val := ""
+			if p.Word != nil {
+				word_val = i.interpretString(p.Word)
+			}
+			substitution := i.getParamExpansionSubstitution(p, word_val)
+			log.Printf("Evaluated Param Expansion: ${%v} -> %q", p.VarName.Text, substitution)
 			// TODO: support :=, :-, etc
-			key := p.VarName.Text
-			val := i.FetchEnvVar(key)
-			log.Printf("Evaluated Param Expansion: ${%v} -> %q", key, val)
-			buffer.WriteString(val)
+			buffer.WriteString(substitution)
 		default:
-			log.Fatal("Unhandled StringPiece type %v", p)
+			log.Fatalf("Unhandled StringPiece type %v", p)
 		}
 	}
 
 	return buffer.String()
 }
 
-/* c.ProcAttr.Env stores environment variables as a list of "<key>=<value>"
- * strings. This fetches the <value> portion given the <key>, or returns
- * empty string.
+func (i *Interpreter) getParamExpansionSubstitution(p *ast.ParameterExpansion, word_val string) string {
+	key := p.VarName.Text
+	param_is_set, param_val := i.FetchEnvVar(key)
+	param_is_null := len(param_val) == 0
+
+	if p.Operator == nil {
+		return param_val
+	}
+	switch p.Operator.Type {
+	case lex.ColonDash:
+		if param_is_set && !param_is_null {
+			return param_val
+		} else {
+			return word_val
+		}
+	case lex.Dash:
+		if param_is_set {
+			return param_val
+		} else {
+			return word_val
+		}
+	default:
+		log.Printf("WARNING: Unhandled param expansion operator %v", p.Operator)
+	}
+	return "POOP"
+}
+
+/* Env stores environment variables as a list of "<key>=<value>" strings. This
+ * fetches the <value> portion given the <key>, or returns empty string.
+ *
+ * This function returns true if the key is set, and false otherwise.
  */
-func (i *Interpreter) FetchEnvVar(key string) string {
+func (i *Interpreter) FetchEnvVar(key string) (bool, string) {
 	key = key + "="
 	for _, item := range i.Env {
 		if strings.HasPrefix(item, key) {
-			return strings.SplitN(item, "=", 2)[1]
+			return true, strings.SplitN(item, "=", 2)[1]
 		}
 	}
-	return ""
+	return false, ""
 }

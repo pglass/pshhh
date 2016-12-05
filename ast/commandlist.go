@@ -8,13 +8,13 @@ import (
 /* A list of commands joined by either ';' or '&' */
 type CommandList struct {
 	Commands   []Command
-	Separators []*lex.Token
+	Separators []lex.Token
 }
 
 func NewCommandList() *CommandList {
 	return &CommandList{
 		Commands:   []Command{},
-		Separators: []*lex.Token{},
+		Separators: []lex.Token{},
 	}
 }
 
@@ -54,22 +54,21 @@ func (c *CommandList) Parse(parser *Parser) error {
 		if tok, err := parser.ConsumeAny(lex.Semi, lex.Ampersand); err != nil {
 			break
 		} else {
-			c.Separators = append(c.Separators, tok)
+			c.Separators = append(c.Separators, *tok)
 		}
 	}
 	return nil
 }
 
 func (c *CommandList) parseCommand(parser *Parser) (Command, error) {
-	tok, err := parser.Lexer.Peek()
-	if err != nil {
-		return nil, err
-	} else if tok == nil {
-		return nil, nil
-	}
+	tok := parser.Lexer.Peek()
 
 	var command Command = nil
 	switch tok.Type {
+	case lex.EOF:
+		return nil, nil
+	case lex.ERROR:
+		return nil, fmt.Errorf("%v", tok.Text)
 	case lex.For:
 		command = NewForClause()
 	case lex.Word, lex.Name, lex.Number:

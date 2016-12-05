@@ -35,15 +35,16 @@ func (i *IoRedirect) Parse() error {
 	i.parser.ConsumeToken(lex.Number, &i.IoNumber)
 
 	// consume the required operator
-	i.IoOperator, _ = i.parser.ConsumeAny(lex.Less, lex.LessAnd, lex.Great,
+	tok, _ := i.parser.ConsumeAny(lex.Less, lex.LessAnd, lex.Great,
 		lex.GreatAnd, lex.DoubleGreat, lex.LessGreat, lex.Clobber,
 		lex.DoubleLess, lex.DoubleLessDash)
+	i.IoOperator = tok
 
 	// if there is no redirect operator, unconsume the io number.
 	// (this is a "tried, failed, backtrack" situation)
 	if i.IoOperator == nil {
 		if i.IoNumber != nil {
-			i.parser.Lexer.Unread(i.IoNumber)
+			i.parser.Lexer.Unread(*i.IoNumber)
 		}
 		return nil
 	}

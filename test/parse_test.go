@@ -4,14 +4,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"psh/ast"
 	"psh/lex"
-	// "reflect"
-	"strings"
 	"testing"
 )
 
 func parse_input(input string) (ast.Node, error) {
-	reader := strings.NewReader(input)
-	lexer := lex.NewLexer(reader)
+	lexer := lex.NewLexer(input)
 	parser := ast.NewParser(lexer)
 	return parser.Parse()
 }
@@ -51,12 +48,12 @@ var PARSE_CASES = []parseData{
 		Input: "echo",
 		Output: ast.NewGenericNode(
 			&ast.CommandList{
-				Separators: []*lex.Token{},
+				Separators: []lex.Token{},
 				Commands: []ast.Command{
 					&ast.SimpleCommand{
 						Redirects: []*ast.IoRedirect{},
-						Words: []*ast.String{
-							ast.NewStringFromTok(&lex.Token{lex.Name, "echo", lex.Location{0, 0}, lex.Location{0, 4}}),
+						Words: []*ast.Str{
+							ast.NewStrFromTok(lex.Token{lex.Name, "echo", 0, 1}),
 						},
 					},
 				},
@@ -68,32 +65,32 @@ var PARSE_CASES = []parseData{
 		Input: "echo 1 2; echo wumbo a & echo;",
 		Output: ast.NewGenericNode(
 			&ast.CommandList{
-				Separators: []*lex.Token{
-					&lex.Token{lex.Semi, ";", lex.Location{0, 8}, lex.Location{0, 9}},
-					&lex.Token{lex.Ampersand, "&", lex.Location{0, 23}, lex.Location{0, 24}},
-					&lex.Token{lex.Semi, ";", lex.Location{0, 29}, lex.Location{0, 30}},
+				Separators: []lex.Token{
+					lex.Token{lex.Semi, ";", 8, 1},
+					lex.Token{lex.Ampersand, "&", 23, 1},
+					lex.Token{lex.Semi, ";", 29, 1},
 				},
 				Commands: []ast.Command{
 					&ast.SimpleCommand{
 						Redirects: []*ast.IoRedirect{},
-						Words: []*ast.String{
-							ast.NewStringFromTok(&lex.Token{lex.Name, "echo", lex.Location{0, 0}, lex.Location{0, 4}}),
-							ast.NewStringFromTok(&lex.Token{lex.Number, "1", lex.Location{0, 5}, lex.Location{0, 6}}),
-							ast.NewStringFromTok(&lex.Token{lex.Number, "2", lex.Location{0, 7}, lex.Location{0, 8}}),
+						Words: []*ast.Str{
+							ast.NewStrFromTok(lex.Token{lex.Name, "echo", 0, 1}),
+							ast.NewStrFromTok(lex.Token{lex.Number, "1", 5, 1}),
+							ast.NewStrFromTok(lex.Token{lex.Number, "2", 7, 1}),
 						},
 					},
 					&ast.SimpleCommand{
 						Redirects: []*ast.IoRedirect{},
-						Words: []*ast.String{
-							ast.NewStringFromTok(&lex.Token{lex.Name, "echo", lex.Location{0, 10}, lex.Location{0, 14}}),
-							ast.NewStringFromTok(&lex.Token{lex.Name, "wumbo", lex.Location{0, 15}, lex.Location{0, 20}}),
-							ast.NewStringFromTok(&lex.Token{lex.Name, "a", lex.Location{0, 21}, lex.Location{0, 22}}),
+						Words: []*ast.Str{
+							ast.NewStrFromTok(lex.Token{lex.Name, "echo", 10, 1}),
+							ast.NewStrFromTok(lex.Token{lex.Name, "wumbo", 15, 1}),
+							ast.NewStrFromTok(lex.Token{lex.Name, "a", 21, 1}),
 						},
 					},
 					&ast.SimpleCommand{
 						Redirects: []*ast.IoRedirect{},
-						Words: []*ast.String{
-							ast.NewStringFromTok(&lex.Token{lex.Name, "echo", lex.Location{0, 25}, lex.Location{0, 29}}),
+						Words: []*ast.Str{
+							ast.NewStrFromTok(lex.Token{lex.Name, "echo", 25, 1}),
 						},
 					},
 				},
@@ -104,10 +101,10 @@ var PARSE_CASES = []parseData{
 	parseData{
 		Input: `"$MINI"`,
 		Output: ast.NewGenericNode(
-			&ast.String{
-				Pieces: []ast.StringPiece{
+			&ast.Str{
+				Pieces: []ast.StrPiece{
 					&ast.ParameterExpansion{
-						VarName:  &lex.Token{lex.Name, "MINI", lex.Location{0, 2}, lex.Location{0, 6}},
+						VarName:  &lex.Token{lex.Name, "MINI", 2, 1},
 						Operator: nil,
 						Word:     nil,
 					},
@@ -119,10 +116,10 @@ var PARSE_CASES = []parseData{
 	parseData{
 		Input: `"${MINI}"`,
 		Output: ast.NewGenericNode(
-			&ast.String{
-				Pieces: []ast.StringPiece{
+			&ast.Str{
+				Pieces: []ast.StrPiece{
 					&ast.ParameterExpansion{
-						VarName:  &lex.Token{lex.Name, "MINI", lex.Location{0, 3}, lex.Location{0, 7}},
+						VarName:  &lex.Token{lex.Name, "MINI", 3, 1},
 						Operator: nil,
 						Word:     nil,
 					},

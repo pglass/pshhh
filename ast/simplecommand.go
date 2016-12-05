@@ -8,13 +8,13 @@ import (
 type SimpleCommand struct {
 	Redirects []*IoRedirect
 	// TODO: how do we store strings here?
-	Words []*String
+	Words []*Str
 }
 
 func NewSimpleCommand() *SimpleCommand {
 	return &SimpleCommand{
 		Redirects: []*IoRedirect{},
-		Words:     []*String{},
+		Words:     []*Str{},
 	}
 }
 
@@ -59,7 +59,7 @@ func (s *SimpleCommand) Parse(parser *Parser) error {
 		parser.ConsumeWhile(lex.Space)
 
 		if parser.Lexer.HasAnyToken(lex.DoubleQuote) {
-			ast_str := NewString()
+			ast_str := NewStr()
 			if err := ast_str.Parse(parser); err != nil {
 				return nil
 			} else {
@@ -70,13 +70,9 @@ func (s *SimpleCommand) Parse(parser *Parser) error {
 
 		parser.ConsumeWhile(lex.Space)
 
-		words := parser.ConsumeWordlist()
-		for _, word := range words {
-			// not the best
-			ast_str := &String{Pieces: []StringPiece{(*StringSegment)(word)}}
-			s.Words = append(s.Words, ast_str)
-		}
-		if len(words) > 0 {
+		if consumedAny, err := s.parseWordList(parser); err != nil {
+			return err
+		} else if consumedAny {
 			continue
 		}
 
@@ -96,4 +92,27 @@ func (s *SimpleCommand) parseIoRedirect(parser *Parser) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func (s *SimpleCommand) parseWordList(parser *Parser) (bool, error) {
+	words_read := 0
+	for {
+		tok := parser.Lexer.Peek()
+		switch tok.Type {
+		case lex.Word, lex.Name, lex.Number, lex.Dollar, lex.DoubleQuote, lex.SingleQuote:
+			ast_str := NewStr()
+			if err := ast_str.Parse(parser); err != nil {
+				return false, err
+			}
+			s.Words = append(s.Words, ast_str)
+			words_read++
+		}
+
+		if parser.Lexer.HasAnyToken(lex.Space) {
+			parser.Lexer.Next()
+		} else {
+			break
+		}
+	}
+	return words_read != 0, nil
 }

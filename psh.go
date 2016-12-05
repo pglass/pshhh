@@ -7,6 +7,8 @@ import (
 	"log"
 	//	"psh/ast"
 	//	"psh/exe"
+	"psh/ast"
+	"psh/exe"
 	"psh/lex"
 	//"strings"
 )
@@ -39,6 +41,11 @@ func init() {
 func main() {
 	flag.Parse()
 
+	log.SetFlags(0)
+	if !debug {
+		log.SetOutput(ioutil.Discard)
+	}
+
 	var lexer *lex.Lexer = nil
 	if filename != "" {
 		if b, err := ioutil.ReadFile(filename); err != nil {
@@ -55,40 +62,21 @@ func main() {
 		log.Fatal("filename or text required")
 	}
 
-	log.SetFlags(0)
-	if !debug {
-		log.SetOutput(ioutil.Discard)
-	}
+	parser := ast.NewParser(lexer)
+	root, err := parser.Parse()
+	if err != nil {
+		fmt.Printf("%v\n", err)
+	} else if root == nil {
+		fmt.Printf("Parse failure (got nil node)\n")
+	} else {
+		interpreter := exe.NewInterpreter()
+		interpreter.Env = env_vars
 
-	for {
-		tok := lexer.Next()
-		switch tok.Type {
-		case lex.EOF:
-			return
-		case lex.ERROR:
-			fmt.Print(tok)
-			return
-		default:
-			fmt.Print(tok)
+		log.Printf("Environment:")
+		for _, item := range interpreter.Env {
+			log.Printf("  %v", item)
 		}
-	}
 
-	//	parser := ast.NewParser(lexer)
-	//
-	//	root, err := parser.Parse()
-	//	if err != nil {
-	//		fmt.Printf("%v\n", err)
-	//	} else if root == nil {
-	//		fmt.Printf("Parse failure (got nil node)\n")
-	//	} else {
-	//		interpreter := exe.NewInterpreter()
-	//		interpreter.Env = env_vars
-	//
-	//		log.Printf("Environment:")
-	//		for _, item := range interpreter.Env {
-	//			log.Printf("  %v", item)
-	//		}
-	//
-	//		interpreter.Interpret(root)
-	//	}
+		interpreter.Interpret(root)
+	}
 }

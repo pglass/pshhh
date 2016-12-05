@@ -2,8 +2,6 @@ package ast
 
 import (
 	"fmt"
-	"io"
-	//	"log"
 	"psh/lex"
 )
 
@@ -27,7 +25,7 @@ func (p *Parser) Parse() (Node, error) {
 
 	for {
 		node, err := p.ParseNext()
-		if err != nil && err != io.EOF {
+		if err != nil {
 			return nil, err
 		} else if node != nil {
 			p.Root.Children = append(p.Root.Children, node)
@@ -42,30 +40,25 @@ func (p *Parser) Parse() (Node, error) {
  * can be parsed (on EOF, for example). Returns an error if tokens remain in
  * the lexer but cannot be consumed */
 func (p *Parser) ParseNext() (Node, error) {
-	token, err := p.Lexer.Peek()
-	if err != nil && err != io.EOF {
-		return nil, err
-	} else if err == io.EOF || token == nil {
-		return nil, nil
-	}
-
-	var node Node = nil
-
+	token := p.Lexer.Peek()
 	switch token.Type {
-	case lex.AndIf, lex.OrIf, lex.DoubleQuote, lex.StringSegment:
-		node, err = p.ParseExpr(token)
+	case lex.EOF:
+		return nil, nil
+	case lex.ERROR:
+		return nil, fmt.Errorf(token.Text)
+	case lex.AndIf, lex.OrIf, lex.DoubleQuote, lex.StringSegment, lex.Dollar:
+		return p.ParseExpr(token)
 	case lex.For, lex.If, lex.Case, lex.While, lex.Until, lex.Word, lex.Name, lex.Number:
 		command_list := NewCommandList()
-		err = command_list.Parse(p)
-		node = command_list
+		err := command_list.Parse(p)
+		node := command_list
+		return node, err
 	default:
-		err = fmt.Errorf("Syntax error near %v", token)
+		return nil, fmt.Errorf("Syntax error near %v", token)
 	}
-
-	return node, err
 }
 
-func (p *Parser) ParseExpr(peekToken *lex.Token) (Expr, error) {
+func (p *Parser) ParseExpr(peekToken lex.Token) (Expr, error) {
 	var expr Expr = nil
 	switch peekToken.Type {
 	case lex.AndIf, lex.OrIf:
@@ -75,8 +68,8 @@ func (p *Parser) ParseExpr(peekToken *lex.Token) (Expr, error) {
 		left := p.Root.Children[0]
 		p.Root.Children = p.Root.Children[1:]
 		expr = NewAndOrClause(left)
-	case lex.DoubleQuote, lex.StringSegment:
-		expr = NewString()
+	case lex.DoubleQuote, lex.StringSegment, lex.Dollar:
+		expr = NewStr()
 	default:
 		return nil, nil
 	}
@@ -87,20 +80,17 @@ func (p *Parser) ParseExpr(peekToken *lex.Token) (Expr, error) {
 	return expr, nil
 }
 
-func (p *Parser) ConsumeWhile(ttypes ...lex.TokenType) []*lex.Token {
-	result := []*lex.Token{}
+func (p *Parser) ConsumeWhile(ttypes ...lex.TokenType) []lex.Token {
+	result := []lex.Token{}
 	for {
-		token, err := p.Lexer.Peek()
-		if err != nil || token == nil {
-			break
-		}
+		tok := p.Lexer.Peek()
 
 		found := false
 		for _, ttype := range ttypes {
-			if token.Type == ttype {
+			if tok.Type == ttype {
 				found = true
 				p.Lexer.Next()
-				result = append(result, token)
+				result = append(result, tok)
 				break
 			}
 		}
@@ -114,41 +104,43 @@ func (p *Parser) ConsumeWhile(ttypes ...lex.TokenType) []*lex.Token {
 }
 
 func (p *Parser) ConsumeToken(ttype lex.TokenType, dst **lex.Token) (*lex.Token, error) {
-	if tok, err := p.Lexer.Peek(); err != nil {
-		return nil, err
-	} else if tok == nil {
+	tok := p.Lexer.Peek()
+	switch tok.Type {
+	case lex.ERROR:
+		return nil, fmt.Errorf("%v", tok.Text)
+	case lex.EOF:
 		return nil, nil
-	} else if tok.Type != ttype {
+	}
+
+	if tok.Type != ttype {
 		return nil, fmt.Errorf("Expected token of type %v (got %v)", ttype, tok)
 	} else {
 		p.Lexer.Next()
 		if dst != nil {
-			*dst = tok
+			*dst = &tok
 		}
-		return tok, err
+		return &tok, nil
 	}
 }
 
 func (p *Parser) ConsumeAny(ttypes ...lex.TokenType) (*lex.Token, error) {
-	if tok, err := p.Lexer.Peek(); err != nil {
-		return nil, err
-	} else if tok == nil {
-		return nil, fmt.Errorf("Saw EOF but expected token of any type %v", ttypes)
-	} else {
-		for _, ttype := range ttypes {
-			if tok.Type == ttype {
-				p.Lexer.Next()
-				return tok, nil
-			}
+	tok := p.Lexer.Peek()
+	for _, ttype := range ttypes {
+		if tok.Type == ttype {
+			p.Lexer.Next()
+			return &tok, nil
 		}
-		return nil, fmt.Errorf("Unexpected token of type %v", tok.Type)
 	}
+	return nil, fmt.Errorf("Expected token of any type %v (got %v)", ttypes, tok.Type)
 }
 
-func (p *Parser) ConsumeWordlist() []*lex.Token {
-	tokens := []*lex.Token{}
-	for _, tok := range p.ConsumeWhile(lex.Word, lex.Name, lex.Number, lex.Space) {
-		if tok.Type != lex.Space {
+func (p *Parser) ConsumeWordlist() []lex.Token {
+	tokens := []lex.Token{}
+	consumed := p.ConsumeWhile(lex.Word, lex.Name, lex.Number, lex.Space)
+	for _, tok := range consumed {
+		if tok.Type == lex.EOF || tok.Type == lex.ERROR {
+			break
+		} else if tok.Type != lex.Space {
 			tokens = append(tokens, tok)
 		}
 	}

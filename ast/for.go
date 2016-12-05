@@ -2,7 +2,6 @@ package ast
 
 import (
 	"fmt"
-	"log"
 	"psh/lex"
 )
 
@@ -20,15 +19,14 @@ type ForClause struct {
 	// the tokens and run the command `seq 1 3` to get "1\n2\n3\n", which we
 	// would tokenize to tokens "1", "\n", "2", "\n", "3", "\n". These tokens
 	// would then replace `seq 1 3` in our token stream.
-	Wordlist []*lex.Token
+	Wordlist []lex.Token
 
 	DoClause *DoClause
 }
 
 func NewForClause() *ForClause {
 	return &ForClause{
-		In:       nil,
-		Wordlist: []*lex.Token{},
+		Wordlist: []lex.Token{},
 		DoClause: NewDoClause(),
 	}
 }
@@ -43,7 +41,6 @@ func (f *ForClause) Format(fs fmt.State, c rune) {
 }
 
 func (f *ForClause) Parse(parser *Parser) error {
-	log.Printf("ForClause.Parse()")
 	// "for"
 	if _, err := parser.ConsumeToken(lex.For, nil); err != nil {
 		return err
