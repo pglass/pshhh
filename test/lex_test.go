@@ -1,9 +1,10 @@
 package test
 
 import (
-	"github.com/stretchr/testify/assert"
-	"psh/lex"
 	"testing"
+
+	"github.com/pglass/pshhh/lex"
+	"github.com/stretchr/testify/assert"
 )
 
 func lex_input(input string) []lex.Token {

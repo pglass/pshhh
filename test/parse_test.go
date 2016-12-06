@@ -1,10 +1,11 @@
 package test
 
 import (
-	"github.com/stretchr/testify/assert"
-	"psh/ast"
-	"psh/lex"
 	"testing"
+
+	"github.com/pglass/pshhh/ast"
+	"github.com/pglass/pshhh/lex"
+	"github.com/stretchr/testify/assert"
 )
 
 func parse_input(input string) (ast.Node, error) {

@@ -2,10 +2,11 @@ package test
 
 import (
 	"bytes"
-	"github.com/stretchr/testify/assert"
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var PSH_EXE = "../psh"

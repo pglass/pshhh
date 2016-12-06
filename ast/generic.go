@@ -2,7 +2,6 @@ package ast
 
 import (
 	"fmt"
-	//"psh/lex"
 )
 
 // The root node represents any shell code
@@ -24,19 +23,3 @@ func (r *GenericNode) Format(f fmt.State, c rune) {
 	}
 	fmt.Fprintf(f, "]")
 }
-
-// func (r *GenericNode) Equals(node ast.Node) bool {
-// 	other, ok := node.(*GenericNode)
-// 	if !ok {
-// 		return false
-// 	}
-// 	if len(r.Children) != len(other.Children) {
-// 		return false
-// 	}
-// 	for i, _ := range r.Children {
-// 		if !r.Children[i].Equals(other.Children[i]) {
-// 			return false
-// 		}
-// 	}
-// 	return t
-// }
