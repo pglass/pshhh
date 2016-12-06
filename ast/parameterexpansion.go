@@ -2,7 +2,8 @@ package ast
 
 import (
 	"fmt"
-	"psh/lex"
+
+	"github.com/pglass/pshhh/lex"
 )
 
 type ParameterExpansion struct {

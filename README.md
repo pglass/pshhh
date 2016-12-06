@@ -20,6 +20,24 @@ the checked feature is complete or bug-free.
 - [ ] Variable assignment
 - [ ] Control flow
 
+Quickstart
+----------
+
+To build psh, use the Makefile
+
+```
+$ make psh
+$ ./psh -t '/bin/echo hello world'
+```
+
+### Running the tests
+
+To run the tests, you will need to:
+
+1. Install dependencies managed by Glide. First, install [Glide](https://github.com/Masterminds/glide)
+2. Run `glide install`
+3. Run `make test`
+
 Notes
 -----
 

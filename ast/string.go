@@ -2,7 +2,8 @@ package ast
 
 import (
 	"fmt"
-	"psh/lex"
+
+	"github.com/pglass/pshhh/lex"
 )
 
 // a Str is composed of a sequence of pieces. each piece can be:

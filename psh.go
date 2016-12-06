@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	//	"psh/ast"
-	//	"psh/exe"
-	"psh/ast"
-	"psh/exe"
-	"psh/lex"
-	//"strings"
+
+	"github.com/pglass/pshhh/ast"
+	"github.com/pglass/pshhh/exe"
+	"github.com/pglass/pshhh/lex"
 )
 
 type EnvVars []string
