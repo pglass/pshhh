@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"psh/ast"
-	"psh/lex"
 	"strings"
+
+	"github.com/pglass/pshhh/ast"
+	"github.com/pglass/pshhh/lex"
 )
 
 type Interpreter struct {
