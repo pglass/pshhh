@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/pglass/pshhh/ast"
@@ -22,40 +21,45 @@ func NewInterpreter() *Interpreter {
 	}
 }
 
-func (i *Interpreter) Interpret(node ast.Node) {
+func (i *Interpreter) Interpret(node ast.Node) error {
 	// log the environment
 	switch n := node.(type) {
 	case *ast.GenericNode:
-		i.interpretGenericNode(n)
+		return i.interpretGenericNode(n)
 	case *ast.CommandList:
-		i.interpretCommandList(n)
+		return i.interpretCommandList(n)
 	case *ast.Str:
 		// TODO: a string could be a param expansion that resolves to a command
 		// name, e.g. if you do `export FOO=echo; "$FOO"`
-		i.interpretString(n)
-	default:
-		fmt.Printf("ERROR: Unhandled node %v\n", n)
+		_, err := i.interpretString(n)
+		return err
 	}
+	return fmt.Errorf("ERROR: Unhandled node %v\n", node)
 }
 
-func (i *Interpreter) interpretGenericNode(node *ast.GenericNode) {
+func (i *Interpreter) interpretGenericNode(node *ast.GenericNode) error {
 	log.Printf("Interpret GenericNode: %v", node)
 	for _, child := range node.Children {
-		i.Interpret(child)
+		if err := i.Interpret(child); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (i *Interpreter) interpretCommandList(node *ast.CommandList) {
+func (i *Interpreter) interpretCommandList(node *ast.CommandList) error {
 	log.Printf("Interpret CommandList: %v", node)
 	for j, command := range node.Commands {
 		var proc *PshProc
+		var err error
 
 		switch n := command.(type) {
 		case *ast.SimpleCommand:
-			proc = i.interpretSimpleCommand(n)
+			if proc, err = i.interpretSimpleCommand(n); err != nil {
+				return err
+			}
 		default:
-			log.Printf("Unhandled command in CommandList: %v", n)
-			return
+			return fmt.Errorf("Unhandled command in CommandList: %v", n)
 		}
 
 		// a command is backgrounded if followed by '&'
@@ -64,99 +68,109 @@ func (i *Interpreter) interpretCommandList(node *ast.CommandList) {
 			node.Separators[j].Type == lex.Ampersand
 
 		if _, err := proc.ForkExec(); err != nil {
-			fmt.Printf("ERROR: failed to run %v: %v\n", proc.Args, err)
+			return fmt.Errorf("ERROR: failed to run %v: %v\n", proc.Args, err)
 		}
 	}
+	return nil
 }
 
-func (i *Interpreter) interpretSimpleCommand(node *ast.SimpleCommand) *PshProc {
+func (i *Interpreter) interpretSimpleCommand(node *ast.SimpleCommand) (*PshProc, error) {
 	log.Printf("Interpret SimpleCommand: %v", node)
 
 	args := []string{}
 	for _, word := range node.Words {
-		text := i.interpretString(word)
-		args = append(args, text)
+		if text, err := i.interpretString(word); err != nil {
+			return nil, err
+		} else {
+			args = append(args, text)
+		}
 	}
 
-	proc, err := NewPshProc(args, i.Env)
-	if err != nil {
-		log.Fatal(err)
+	if proc, err := NewPshProc(args, i.Env); err != nil {
+		return nil, err
+	} else {
+		return proc, nil
 	}
-	return proc
 }
 
-func (i *Interpreter) interpretString(node *ast.Str) string {
+func (i *Interpreter) interpretString(node *ast.Str) (string, error) {
 	var buffer bytes.Buffer
 	for _, piece := range node.Pieces {
 		switch p := piece.(type) {
 		case ast.RawStr:
 			buffer.WriteString(string(p))
 		case *ast.ParameterExpansion:
-			word_val := ""
+			var word_val string
+			var err error
+			var sub string
+
 			if p.Word != nil {
-				word_val = i.interpretString(p.Word)
+				if word_val, err = i.interpretString(p.Word); err != nil {
+					return "", err
+				}
 			}
-			substitution := i.getParamExpansionSubstitution(p, word_val)
-			log.Printf("Evaluated Param Expansion: ${%v} -> %q", p.VarName.Text, substitution)
-			// TODO: support :=, :-, etc
-			buffer.WriteString(substitution)
+
+			if sub, err = i.resolveParamExpansion(p, word_val); err != nil {
+				return "", err
+			} else {
+				log.Printf("Evaluated Param Expansion: ${%v} -> %q", p.VarName.Text, sub)
+				buffer.WriteString(sub)
+			}
 		default:
-			log.Fatalf("Unhandled StringPiece type %v", p)
+			return "", fmt.Errorf("Unhandled StringPiece type %v", p)
 		}
 	}
 
-	return buffer.String()
+	return buffer.String(), nil
 }
 
-func (i *Interpreter) getParamExpansionSubstitution(p *ast.ParameterExpansion, word_val string) string {
+func (i *Interpreter) resolveParamExpansion(p *ast.ParameterExpansion, word_val string) (string, error) {
 	key := p.VarName.Text
 	param_is_set, param_val := i.FetchEnvVar(key)
 	param_is_null := len(param_val) == 0
 
 	if p.Operator == nil {
-		return param_val
+		return param_val, nil
 	}
 	switch p.Operator.Type {
 	case lex.ColonDash:
 		if param_is_set && !param_is_null {
-			return param_val
+			return param_val, nil
 		} else {
-			return word_val
+			return word_val, nil
 		}
 	case lex.Dash:
 		if param_is_set {
-			return param_val
+			return param_val, nil
 		} else {
-			return word_val
+			return word_val, nil
 		}
 	case lex.Plus:
 		if param_is_set {
-			return word_val
+			return word_val, nil
 		}
-		return ""
+		return "", nil
 	case lex.ColonPlus:
 		if param_is_set && !param_is_null {
-			return word_val
+			return word_val, nil
 		}
-		return ""
+		return "", nil
 	case lex.Question:
 		if param_is_set {
-			return param_val
+			return param_val, nil
 		} else {
 			err_msg := fmt.Sprintf("%v: %v", key, word_val)
-			i.exit(err_msg, 1)
+			return "", i.exit(err_msg, 1)
 		}
 	case lex.ColonQuestion:
 		if param_is_set && !param_is_null {
-			return param_val
+			return param_val, nil
 		} else {
 			err_msg := fmt.Sprintf("%v: %v", key, word_val)
-			i.exit(err_msg, 1)
+			return "", i.exit(err_msg, 1)
 		}
-	default:
-		log.Printf("WARNING: Unhandled param expansion operator %v", p.Operator)
 	}
-	return ""
+	return "", fmt.Errorf("ERROR: Unhandled param expansion operator %v", p.Operator)
 }
 
 /* Env stores environment variables as a list of "<key>=<value>" strings. This
@@ -174,8 +188,10 @@ func (i *Interpreter) FetchEnvVar(key string) (bool, string) {
 	return false, ""
 }
 
-func (i *Interpreter) exit(err_msg string, code int) {
+func (i *Interpreter) exit(err_msg string, code int) error {
 	// todo: print to stderr?
-	fmt.Printf("error: %s\n", err_msg)
-	os.Exit(1)
+	return ExitError{
+		error:    fmt.Errorf("error: %s\n", err_msg),
+		ExitCode: 1,
+	}
 }

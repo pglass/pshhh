@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/pglass/pshhh/ast"
 	"github.com/pglass/pshhh/exe"
@@ -55,17 +58,22 @@ func main() {
 		lexer = lex.NewLexer(text)
 	}
 
-	if lexer == nil {
-		flag.PrintDefaults()
-		log.Fatal("filename or text required")
+	if lexer != nil {
+		if err := run_single(lexer); err != nil {
+			handle_error(err, false)
+		}
+	} else {
+		run_shell()
 	}
+}
 
+func run_single(lexer *lex.Lexer) error {
 	parser := ast.NewParser(lexer)
 	root, err := parser.Parse()
 	if err != nil {
-		fmt.Printf("%v\n", err)
+		return fmt.Errorf("%v\n", err)
 	} else if root == nil {
-		fmt.Printf("Parse failure (got nil node)\n")
+		return fmt.Errorf("Parse failure (got nil node)\n")
 	} else {
 		interpreter := exe.NewInterpreter()
 		interpreter.Env = env_vars
@@ -75,6 +83,39 @@ func main() {
 			log.Printf("  %v", item)
 		}
 
-		interpreter.Interpret(root)
+		if err := interpreter.Interpret(root); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func run_shell() {
+	for {
+		fmt.Print("$ ")
+
+		reader := bufio.NewReader(os.Stdin)
+		if input, err := reader.ReadString('\n'); err != nil {
+			log.Fatalf("error: %v\n", err)
+		} else {
+			lexer := lex.NewLexer(strings.TrimSpace(input))
+			if err := run_single(lexer); err != nil {
+				handle_error(err, true)
+			}
+		}
+	}
+}
+
+func handle_error(err error, is_shell bool) {
+	fmt.Print(err)
+	switch e := err.(type) {
+	case exe.ExitError:
+		if !is_shell {
+			os.Exit(e.ExitCode)
+		}
+	default:
+		if !is_shell {
+			os.Exit(1)
+		}
 	}
 }

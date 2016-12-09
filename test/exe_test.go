@@ -68,8 +68,9 @@ func TestPsh(t *testing.T) {
 // TODO: assumes /bin/echo exists
 var PSH_CASES = []exeData{
 	exeData{
-		Args:   []string{"-t", "echo"},
-		Output: "ERROR: failed to run [echo]: no such file or directory\n",
+		Args:     []string{"-t", "echo"},
+		Output:   "ERROR: failed to run [echo]: no such file or directory\n",
+		ExitCode: 1,
 	},
 	exeData{
 		Args:   []string{"-t", "echo", "-e", "PATH=/bin"},
