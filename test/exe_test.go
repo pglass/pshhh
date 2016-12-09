@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"os/exec"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+// TODO: eventually it would be nice to be able to substitute "/bin/bash" here
 var PSH_EXE = "../psh"
 
 func exec_psh(args ...string) (string, error) {
@@ -20,14 +22,14 @@ func exec_psh(args ...string) (string, error) {
 }
 
 type exeData struct {
-	Args   []string
-	Output string
-	Error  error
+	Args     []string
+	Output   string
+	ExitCode int
 }
 
 func run_psh_test(t *testing.T, data exeData) {
 	t.Logf("Args: %q", data.Args)
-	t.Logf("Error (expected): %v", data.Error)
+	t.Logf("ExitCode (expected): %v", data.ExitCode)
 	t.Logf("Output (expected): %v", data.Output)
 
 	out, err := exec_psh(data.Args...)
@@ -35,14 +37,25 @@ func run_psh_test(t *testing.T, data exeData) {
 	t.Logf("Error (received): %v", err)
 	t.Logf("Output (received): %v", out)
 
-	if data.Error != nil {
-		assert.Equal(t, data.Error, err)
-	} else {
-		assert.Nil(t, err)
-	}
-
+	check_exit_code(t, data.ExitCode, err)
 	assert.Equal(t, data.Output, out)
 
+}
+
+func check_exit_code(t *testing.T, expected int, err error) {
+	if expected == 0 {
+		assert.Nil(t, err, "Expected exit status %v, but got error %v", expected, err)
+	} else {
+		switch e := err.(type) {
+		case *exec.ExitError:
+			// ugh
+			if status, ok := e.Sys().(syscall.WaitStatus); ok {
+				assert.Equal(t, expected, status.ExitStatus())
+				return
+			}
+		}
+		t.Errorf("Failed to get exit status from error: %v", err)
+	}
 }
 
 func TestPsh(t *testing.T) {
@@ -79,7 +92,8 @@ var PSH_CASES = []exeData{
 		Output: "/bin mini\n",
 	},
 
-	/*
+	/* Use Default Values (:-)
+	 *
 	 * 				P set, not null 		P set, but null 	P not set
 	 *				--------------- 		--------------- 	---------------
 	 * ${P:-W} 		substitute P 			substitute W 		substitute W
@@ -96,7 +110,9 @@ var PSH_CASES = []exeData{
 		Args:   []string{"-t", `/bin/echo ${X:-word}`, "-e", "X=param"},
 		Output: "param\n",
 	},
-	/*
+
+	/* Use Default Values (-)
+	 *
 	 * 				P set, not null 		P set, but null 	P not set
 	 * ${P-word} 	substitute P 			substitute null		substitute W
 	 */
@@ -110,6 +126,81 @@ var PSH_CASES = []exeData{
 	},
 	exeData{
 		Args:   []string{"-t", `/bin/echo ${X-word}`, "-e", "X=param"},
+		Output: "param\n",
+	},
+
+	/* Use Alternative Value (+)
+	 *
+	 * 				P set, not null 		P set, but null 	P not set
+	 * ${P+word} 	substitute W 			substitute W		substitute null
+	 */
+	exeData{
+		Args:   []string{"-t", `/bin/echo ${X+word}`},
+		Output: "\n",
+	},
+	exeData{
+		Args:   []string{"-t", `/bin/echo ${X+word}`, "-e", "X="},
+		Output: "word\n",
+	},
+	exeData{
+		Args:   []string{"-t", `/bin/echo ${X+word}`, "-e", "X=param"},
+		Output: "word\n",
+	},
+
+	/* Use Alternative Value (:+)
+	 *
+	 * 				P set, not null 		P set, but null 	P not set
+	 * ${P:+word} 	substitute W 			substitute null		substitute null
+	 */
+	exeData{
+		Args:   []string{"-t", `/bin/echo ${X:+word}`},
+		Output: "\n",
+	},
+	exeData{
+		Args:   []string{"-t", `/bin/echo ${X:+word}`, "-e", "X="},
+		Output: "\n",
+	},
+	exeData{
+		Args:   []string{"-t", `/bin/echo ${X:+word}`, "-e", "X=param"},
+		Output: "word\n",
+	},
+
+	/* Indicate Error if Null or Unset (?)
+	 *
+	 * 				P set, not null 		P set, but null 	P not set
+	 * ${P?word} 	substitute P 			substitute null		error, exit
+	 */
+	exeData{
+		Args:     []string{"-t", `/bin/echo ${X?word}`},
+		Output:   "error: X: word\n",
+		ExitCode: 1,
+	},
+	exeData{
+		Args:   []string{"-t", `/bin/echo ${X?word}`, "-e", "X="},
+		Output: "\n",
+	},
+	exeData{
+		Args:   []string{"-t", `/bin/echo ${X?word}`, "-e", "X=param"},
+		Output: "param\n",
+	},
+
+	/* Indicate Error if Null or Unset (:?)
+	 *
+	 * 				P set, not null 		P set, but null 	P not set
+	 * ${P:?word} 	substitute P 			error, exit			error, exit
+	 */
+	exeData{
+		Args:     []string{"-t", `/bin/echo ${X:?word}`},
+		Output:   "error: X: word\n",
+		ExitCode: 1,
+	},
+	exeData{
+		Args:     []string{"-t", `/bin/echo ${X:?word}`, "-e", "X="},
+		Output:   "error: X: word\n",
+		ExitCode: 1,
+	},
+	exeData{
+		Args:   []string{"-t", `/bin/echo ${X:?word}`, "-e", "X=param"},
 		Output: "param\n",
 	},
 }

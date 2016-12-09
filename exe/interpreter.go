@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/pglass/pshhh/ast"
@@ -128,10 +129,34 @@ func (i *Interpreter) getParamExpansionSubstitution(p *ast.ParameterExpansion, w
 		} else {
 			return word_val
 		}
+	case lex.Plus:
+		if param_is_set {
+			return word_val
+		}
+		return ""
+	case lex.ColonPlus:
+		if param_is_set && !param_is_null {
+			return word_val
+		}
+		return ""
+	case lex.Question:
+		if param_is_set {
+			return param_val
+		} else {
+			err_msg := fmt.Sprintf("%v: %v", key, word_val)
+			i.exit(err_msg, 1)
+		}
+	case lex.ColonQuestion:
+		if param_is_set && !param_is_null {
+			return param_val
+		} else {
+			err_msg := fmt.Sprintf("%v: %v", key, word_val)
+			i.exit(err_msg, 1)
+		}
 	default:
 		log.Printf("WARNING: Unhandled param expansion operator %v", p.Operator)
 	}
-	return "POOP"
+	return ""
 }
 
 /* Env stores environment variables as a list of "<key>=<value>" strings. This
@@ -147,4 +172,10 @@ func (i *Interpreter) FetchEnvVar(key string) (bool, string) {
 		}
 	}
 	return false, ""
+}
+
+func (i *Interpreter) exit(err_msg string, code int) {
+	// todo: print to stderr?
+	fmt.Printf("error: %s\n", err_msg)
+	os.Exit(1)
 }
