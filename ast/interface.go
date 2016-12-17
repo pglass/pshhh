@@ -10,7 +10,6 @@ type Parselet interface {
 
 type Node interface {
 	fmt.Formatter
-	// Equals(Node) bool
 }
 
 type Command interface {

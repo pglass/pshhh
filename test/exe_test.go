@@ -76,6 +76,15 @@ var PSH_CASES = []exeData{
 		Args:   []string{"-t", "echo", "-e", "PATH=/bin"},
 		Output: "\n",
 	},
+	// TODO: FAILS
+	// exeData{
+	// 	Args:   []string{"-t", `'echo'`, "-e", "PATH=/bin"},
+	// 	Output: "\n",
+	// },
+	exeData{
+		Args:   []string{"-t", `"echo"`, "-e", "PATH=/bin"},
+		Output: "\n",
+	},
 	exeData{
 		Args:   []string{"-t", "echo $PATH", "-e", "PATH=/bin"},
 		Output: "/bin\n",
@@ -204,4 +213,28 @@ var PSH_CASES = []exeData{
 		Args:   []string{"-t", `/bin/echo ${X:?word}`, "-e", "X=param"},
 		Output: "param\n",
 	},
+
+	/* Programs stored in environment variables */
+	exeData{
+		Args:   []string{"-t", `$FOO`, "-e", "FOO=/bin/echo"},
+		Output: "\n",
+	},
+	exeData{
+		Args:   []string{"-t", `"$FOO"`, "-e", "FOO=/bin/echo"},
+		Output: "\n",
+	},
+	exeData{
+		Args:   []string{"-t", `$FOO`, "-e", "FOO=/bin/echo wumbo"},
+		Output: "wumbo\n",
+	},
+	// TODO: fails
+	// exeData{
+	// 	Args:   []string{"-t", `$FOO`, "-e", "FOO=/bin/echo wumbo; /bin/echo mini"},
+	// 	Output: "wumbo; /bin/echo mini\n",
+	// },
+	// TODO: fails
+	// exeData{
+	// 	Args:   []string{"-t", `$FOO`, "-e", "FOO=/bin/echo $X", "-e", "X=wumbo"},
+	// 	Output: "$X\n",
+	// },
 }

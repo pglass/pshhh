@@ -8,10 +8,10 @@ import (
 
 type stateFn func(*Lexer, stateFn) stateFn
 
-func lexSequence(lx *Lexer, state stateFn, states ...stateFn) stateFn {
+func composeStates(lx *Lexer, state stateFn, states ...stateFn) stateFn {
 	nextState := lexText
 	if len(states) > 1 {
-		nextState = lexSequence(lx, states[0], states[1:]...)
+		nextState = composeStates(lx, states[0], states[1:]...)
 	} else if len(states) == 1 {
 		nextState = states[0]
 	}
@@ -151,7 +151,7 @@ func lexDoubleQuotedString(lx *Lexer, nextState stateFn) stateFn {
 		lx.emit(DoubleQuote)
 	}
 
-	return lexSequence(lx, lexDoubleQuotedStringContents, nextState)
+	return composeStates(lx, lexDoubleQuotedStringContents, nextState)
 }
 
 func lexDoubleQuotedStringContents(lx *Lexer, nextState stateFn) stateFn {
@@ -178,7 +178,7 @@ func lexDoubleQuotedStringContents(lx *Lexer, nextState stateFn) stateFn {
 			}
 		} else if c == '$' {
 			lx.emitBuffer(StringSegment, buffer)
-			return lexSequence(lx, lexDollarExpansion, lexDoubleQuotedStringContents, nextState)
+			return composeStates(lx, lexDollarExpansion, lexDoubleQuotedStringContents, nextState)
 		} else {
 			lx.nextRune()
 			buffer.WriteRune(c)
@@ -214,7 +214,7 @@ func lexBraceExpansion(lx *Lexer, nextState stateFn) stateFn {
 
 	c := lx.peekRune()
 	if IsNameChar(c) {
-		return lexSequence(lx, lexName, lexBraceExpansionEnd, nextState)
+		return composeStates(lx, lexName, lexBraceExpansionEnd, nextState)
 	}
 
 	return nextState
@@ -234,7 +234,7 @@ func lexName(lx *Lexer, nextState stateFn) stateFn {
 func lexBraceExpansionEnd(lx *Lexer, nextState stateFn) stateFn {
 	c := lx.peekRune()
 	if strings.ContainsRune(":+-=?", c) {
-		return lexSequence(lx, lexOperator, lexText, lexOperator, nextState)
+		return composeStates(lx, lexOperator, lexText, lexOperator, nextState)
 	} else if c == '}' {
 		lx.nextRune()
 		lx.emit(RightBrace)

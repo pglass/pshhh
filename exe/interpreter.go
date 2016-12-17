@@ -22,17 +22,42 @@ func NewInterpreter() *Interpreter {
 }
 
 func (i *Interpreter) Interpret(node ast.Node) error {
-	// log the environment
 	switch n := node.(type) {
 	case *ast.GenericNode:
 		return i.interpretGenericNode(n)
 	case *ast.CommandList:
 		return i.interpretCommandList(n)
 	case *ast.Str:
-		// TODO: a string could be a param expansion that resolves to a command
-		// name, e.g. if you do `export FOO=echo; "$FOO"`
-		_, err := i.interpretString(n)
-		return err
+		// a string could be a param expansion that resolves to a program. for example, if you do
+		//
+		//     $ export FOO='echo wumbo'
+		//	   $ $FOO
+		//	   wumbo
+		//
+		// TODO: figure out how this should work. In bash, there seem to be some limitations around
+		// what how "programs stored in environment variables" get executed. Are these limited to
+		// single commands? Are some limitations for security reasons?
+		//
+		// For example,
+		//
+		//     bash> FOO='echo wumbo; echo mini'; $FOO
+		//     wumbo; echo mini
+		//
+		//     bash> export Y=thisisy
+		//     bash> FOO='echo $Y'; $FOO
+		//     $Y
+		//
+		if text, err := i.interpretString(n); err != nil {
+			return err
+		} else {
+			lexer := lex.NewLexer(text)
+			parser := ast.NewParser(lexer)
+			if root, err := parser.Parse(); err != nil {
+				return err
+			} else {
+				return i.Interpret(root)
+			}
+		}
 	}
 	return fmt.Errorf("ERROR: Unhandled node %v\n", node)
 }
